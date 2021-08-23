@@ -1,0 +1,48 @@
+{
+  "name": "middle-st",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://github.com/bruno-frascino/middle-st.git",
+  "author": "Bruno Frascino <bfrascino80@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@getify/eslint-plugin-proper-arrows": "^11.0.3",
+    "@typescript-eslint/eslint-plugin": "^4.29.2",
+    "@typescript-eslint/parser": "^4.29.2",
+    "@types/jest": "^26.0.24",
+    "@types/jest-when": "^2.7.3",
+    "@types/jsonwebtoken": "^8.5.4",
+    "@types/lodash": "^4.14.172",
+    "@types/node": "^14.14.37",
+    "@types/node-fetch": "^2.5.12",
+    "eslint": "^7.32.0",
+    "eslint-config-airbnb-base": "^14.2.1",
+    "eslint-import-resolver-alias": "^1.1.2",
+    "eslint-plugin-import": "^2.24.0",
+    "eslint-plugin-jest": "^23.7.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-prettier": "^3.4.1",
+    "prettier": "^2.3.2",
+    "npm-run-all": "^4.1.5",
+    "ts-jest": "^26.5.5",
+    "jest": "26.6.3",
+    "jest-summary-reporter": "^0.0.2",
+    "jest-when": "^2.7.2",
+    "husky": "^7.0.1",
+    "typescript": "^4.3.5"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node ./dist/index.js",
+    "dev": "tsc -w",
+    "verify": "eslint --max-warnings=0 --ext .ts,.js src/",
+    "test": "env UNIT_TEST_LOGS=silent jest", 
+    "lint": "eslint --max-warnings=0 --fix --ext .ts,.js src/"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm-run-all verify test docs:generate:errors"
+    }
+  },
+  "dependencies": {}
+}
