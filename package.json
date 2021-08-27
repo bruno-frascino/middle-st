@@ -36,7 +36,7 @@
   },
   "scripts": {
     "start": "node dist/app.js",
-    "dev": "nodemon src/app.ts",
+    "dev": "nodemon --config nodemon.json src/app.ts",
     "build": "tsc -p .",
     "verify": "eslint --max-warnings=0 --ext .ts,.js src/",
     "test": "env UNIT_TEST_LOGS=silent jest",
