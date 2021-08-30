@@ -1,9 +1,13 @@
 /* eslint-disable @getify/proper-arrows/where */
 import express, { Application, Request, Response } from 'express';
-import { defaultConfig } from './config/default-config';
+import config from 'config';
 import sysLogger from './logger';
 
-const { port, host } = defaultConfig;
+// export NODE_ENV=development (default)
+// export NODE_ENV=production (when going to production)
+const port: number = config.get('port');
+const host: string = config.get('host');
+
 const app: Application = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
