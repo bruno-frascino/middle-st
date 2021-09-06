@@ -1,15 +1,16 @@
 /* eslint-disable @getify/proper-arrows/where */
-import express, { Application, Request, Response } from 'express';
+import express, { Request, Response } from 'express';
 import config from 'config';
 import log from './logger';
 import connect from './db/connect';
+import routes from './routes';
 
 // export NODE_ENV=development (default)
 // export NODE_ENV=production (when going to production)
 const port: number = config.get('port');
 const host: string = config.get('host');
 
-const app: Application = express();
+const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -17,5 +18,10 @@ app.get('/', (req: Request, res: Response) => res.send('<h2>Express + TypeScript
 
 app.listen(port, host, () => {
   log.info(`⚡️[server]: Server is running at http://${host}:${port}`);
+
+  // DB Connection
   connect();
+
+  // Initialize routes
+  routes(app);
 });
