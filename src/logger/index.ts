@@ -5,7 +5,7 @@ function timestampFormat() {
   return `,"time":"${dayjs().format()}"`;
 }
 
-const sysLogger = logger({
+const log = logger({
   prettyPrint: true,
   base: {
     pid: false,
@@ -13,4 +13,4 @@ const sysLogger = logger({
   timestamp: timestampFormat,
 });
 
-export default sysLogger;
+export default log;

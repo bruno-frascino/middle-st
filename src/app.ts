@@ -1,7 +1,8 @@
 /* eslint-disable @getify/proper-arrows/where */
 import express, { Application, Request, Response } from 'express';
 import config from 'config';
-import sysLogger from './logger';
+import log from './logger';
+import connect from './db/connect';
 
 // export NODE_ENV=development (default)
 // export NODE_ENV=production (when going to production)
@@ -15,5 +16,6 @@ app.use(express.urlencoded({ extended: false }));
 app.get('/', (req: Request, res: Response) => res.send('<h2>Express + TypeScript Server + Nodemon</h2>'));
 
 app.listen(port, host, () => {
-  sysLogger.info(`⚡️[server]: Server is running at http://${host}:${port}`);
+  log.info(`⚡️[server]: Server is running at http://${host}:${port}`);
+  connect();
 });
