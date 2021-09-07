@@ -2,7 +2,7 @@
 import express, { Request, Response } from 'express';
 import config from 'config';
 import log from './logger';
-import connect from './db/connect';
+import { connect } from './db/database';
 import routes from './routes';
 
 // export NODE_ENV=development (default)
