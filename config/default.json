@@ -1,5 +1,6 @@
 {
   "port": 3000,
   "host": "localhost",
-  "dbUri": "something"  
+  "dbName": "middle.db",
+  "verbose": "false"
 }

@@ -2,7 +2,7 @@
 import express, { Request, Response } from 'express';
 import config from 'config';
 import log from './logger';
-import { connect } from './db/database';
+import * as lite from './db/sqlite';
 import routes from './routes';
 
 // export NODE_ENV=development (default)
@@ -16,12 +16,10 @@ app.use(express.urlencoded({ extended: false }));
 
 app.get('/', (req: Request, res: Response) => res.send('<h2>Express + TypeScript Server + Nodemon</h2>'));
 
-app.listen(port, host, () => {
-  log.info(`⚡️[server]: Server is running at http://${host}:${port}`);
-
-  // DB Connection
-  connect();
-
-  // Initialize routes
-  routes(app);
+lite.connect(() => {
+  app.listen(port, host, () => {
+    log.info(`⚡️[server]: Server is running at http://${host}:${port}`);
+    // Initialize routes
+    routes(app);
+  });
 });
