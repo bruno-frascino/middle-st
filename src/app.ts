@@ -1,5 +1,5 @@
 /* eslint-disable @getify/proper-arrows/where */
-import express, { Request, Response } from 'express';
+import express from 'express';
 import config from 'config';
 import log from './logger';
 import * as lite from './db/sqlite';
@@ -14,9 +14,12 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-app.get('/', (req: Request, res: Response) => res.send('<h2>Express + TypeScript Server + Nodemon</h2>'));
-
+// database connection and other initializations
 lite.connect(() => {
+  // TODO - consider proactively warm up dependency systems connections
+  // initializeSM();
+  // initializeTray();
+
   app.listen(port, host, () => {
     log.info(`⚡️[server]: Server is running at http://${host}:${port}`);
     // Initialize routes
