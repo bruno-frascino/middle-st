@@ -10,6 +10,7 @@ export function connect(callback: Function) {
 
   const sqlite = verbose ? sqlite3.verbose() : sqlite3;
 
+  // TODO - database path when in dist folder
   const con = new sqlite.Database(`./${dbName}`, sqlite3.OPEN_READWRITE, (err) => {
     if (err) {
       log.error(err.message);
