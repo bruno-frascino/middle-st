@@ -2,5 +2,7 @@
   "port": 3000,
   "host": "localhost",
   "dbName": "middle.db",
-  "verbose": "false"
+  "verbose": "true",
+  "smBaseUrl": "https://sandbox.smserver.com.br",
+  "trayBaseUrl": ""
 }
