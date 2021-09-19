@@ -2,7 +2,7 @@
 import express from 'express';
 import config from 'config';
 import log from './logger';
-import * as lite from './db/sqlite';
+import * as lite from './db/db';
 import routes from './routes';
 
 // export NODE_ENV=development (default)
