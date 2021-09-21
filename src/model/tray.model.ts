@@ -19,16 +19,6 @@
 // order	            N de pedido.
 // customer	          N de cliente.
 
-// const SERVICE_TYPE_TO_BASKET_SERVICE_TYPE_MAP: { [key: string]: VlocityServiceType | undefined } = {
-//   [ServiceTypeValue.NewAcquisition]: VlocityServiceType.NewAcquisition,
-//   [ServiceTypeValue.Upgrade]: VlocityServiceType.Upgrade,
-//   [ServiceTypeValue.AnotherService]: VlocityServiceType.AnotherService,
-// };
-
-// export function getVlocityServiceType(vfeServiceType: ServiceTypeValue): VlocityServiceType | undefined {
-//   return SERVICE_TYPE_TO_BASKET_SERVICE_TYPE_MAP[vfeServiceType];
-// }
-
 export interface Notification {
   seller_id: number;
   scope_id: number; // Código do escopo da notificação
