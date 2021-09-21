@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
-import { Notification, TrayKey } from '../model/tray.model';
+import { Notification } from '../model/tray.model';
 import log from '../logger';
-import { getIntegration } from '../db/db';
+import { getIntegration, insertNotification } from '../db/db';
 
 export async function createProductHandler(req: Request, res: Response, next: NextFunction) {
   try {
@@ -23,7 +23,11 @@ export async function handleNotification(notification: Notification) {
     throw new Error('Seller not found');
   }
 
-  // Identify action
-
-  //
+  // Store Notification
+  const id = await insertNotification(notification);
+  if (!id) {
+    throw new Error('Failed to save notification');
+  }
+  log.info(`Notification saved: ${JSON.stringify(id)}`);
+  return id;
 }
