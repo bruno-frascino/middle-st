@@ -59,6 +59,21 @@ export function run(sql: string, params: {} = {}) {
   });
 }
 
+export function all(sql: string, params: {} = {}) {
+  log.info(`Running sql: ${sql} with params: ${JSON.stringify(params)}`);
+  return new Promise((resolve, reject) => {
+    // eslint-disable-next-line func-names
+    getInstance().all(sql, params, (err, rows) => {
+      if (err) {
+        log.error(`Error running sql: ${sql} with error ${err}`);
+        reject(err);
+      } else {
+        resolve(rows);
+      }
+    });
+  });
+}
+
 export async function getIntegration(sellerId: number, appCode: string) {
   const sql = `SELECT * 
               FROM INTEGRATION 
@@ -82,4 +97,10 @@ export async function insertNotification(notification: Notification) {
     $sellerId: notification.seller_id,
     $appCode: notification.app_code,
   })) as Object;
+}
+
+export async function getOrderedNotifications() {
+  const sql = `SELECT * FROM NOTIFICATION ORDER BY sellerId, scopeName, scopeId, createDate`;
+
+  return (await all(sql)) as Notification[];
 }
