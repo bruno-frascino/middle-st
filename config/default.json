@@ -3,6 +3,8 @@
   "host": "localhost",
   "dbName": "middle.db",
   "verbose": "true",
-  "smBaseUrl": "https://sandbox.smserver.com.br",
-  "trayBaseUrl": ""
+  "sBaseUrl": "https://sandbox.smserver.com.br",
+  "tBaseUrl": "",
+  "tMonitor": 30000,
+  "sMonitor": 30000
 }

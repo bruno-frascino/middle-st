@@ -16,7 +16,7 @@ async function getAccessToken({ key, secret }: { key: string; secret: string }):
     secret,
   };
 
-  const baseUrl: string = config.get('smBaseUrl');
+  const baseUrl: string = config.get('sBaseUrl');
 
   const requestInit: RequestInit = {
     method: 'POST',
