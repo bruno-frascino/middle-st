@@ -4,11 +4,13 @@ import config from 'config';
 import log from './logger';
 import * as lite from './db/db';
 import routes from './routes';
+import { notificationMonitor } from './services/tray.service';
 
 // export NODE_ENV=development (default)
 // export NODE_ENV=production (when going to production)
 const port: number = config.get('port');
 const host: string = config.get('host');
+const tMonitor: number = config.get('tMonitor');
 
 const app = express();
 app.use(express.json());
@@ -25,4 +27,7 @@ lite.connect(() => {
     // Initialize routes
     routes(app);
   });
+
+  // Start Tray monitor
+  setInterval(notificationMonitor, tMonitor);
 });

@@ -19,12 +19,28 @@
 // order	            N de pedido.
 // customer	          N de cliente.
 
+export enum Scope {
+  PRODUCT = 'product',
+  PRODUCT_PRICE = 'product_price',
+  PRODUCT_STOCK = 'product_stock',
+  VARIANT = 'variant',
+  VARIANT_PRICE = 'variant_price',
+  VARIANT_STOCK = 'variant_stock',
+  ORDER = 'order',
+}
+
+export enum Act {
+  INSERT = 'insert',
+  UPDATE = 'update',
+  DELETE = 'delete',
+}
+
 export interface Notification {
   seller_id: number;
   scope_id: number; // Código do escopo da notificação
   scope_name: string; // Nome do escopo notificado.
   act: string; // TODO - Enum // insert | update | delete
-  app_code: string;
+  app_code: string; // unico por loja, usado para acessar a api
   url_notification: string;
 }
 

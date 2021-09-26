@@ -11,3 +11,18 @@ export interface Integration {
   sellerTStoreCode?: string;
   active: number;
 }
+export interface Notification {
+  id: number;
+  scopeName: string;
+  act: string;
+  scopeId: number;
+  sellerId: number;
+  appCode: string;
+  createDate: number;
+}
+
+export interface NotificationKey {
+  sellerId: number;
+  scopeName: string;
+  scopeId: number;
+}

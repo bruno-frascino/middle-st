@@ -1,7 +1,7 @@
 import config from 'config';
 import sqlite3 from 'sqlite3';
 import log from '../logger';
-import { Integration } from '../model/db.model';
+import { Notification as ENotification, Integration } from '../model/db.model';
 import { Notification } from '../model/tray.model';
 
 let db: sqlite3.Database;
@@ -102,5 +102,12 @@ export async function insertNotification(notification: Notification) {
 export async function getOrderedNotifications() {
   const sql = `SELECT * FROM NOTIFICATION ORDER BY sellerId, scopeName, scopeId, createDate`;
 
-  return (await all(sql)) as Notification[];
+  return (await all(sql)) as ENotification[];
+}
+
+export async function deleteNotifications(ids: number[]) {
+  const params = ids.join(',');
+  const sql = `DELETE FROM NOTIFICATION WHERE id IN(${params})`;
+
+  return (await run(sql)) as Object;
 }
