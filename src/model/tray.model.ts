@@ -27,6 +27,7 @@ export enum Scope {
   VARIANT_PRICE = 'variant_price',
   VARIANT_STOCK = 'variant_stock',
   ORDER = 'order',
+  CUSTOMER = 'customer',
 }
 
 export enum Act {
