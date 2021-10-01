@@ -1,20 +1,13 @@
-import { NextFunction, Request, Response } from 'express';
 import { Act, Notification, Scope } from '../model/tray.model';
 import log from '../logger';
 import { deleteNotifications, getIntegration, getOrderedNotifications, insertNotification } from '../db/db';
 import { Notification as ENotification } from '../model/db.model';
 
-export async function createProductHandler(req: Request, res: Response, next: NextFunction) {
-  try {
-    console.log('body ', req.body);
-    console.log('params ', req.params);
-    console.log('query ', req.query);
-  } catch (err) {
-    log.error(`Error validating input: ${err}`);
-  }
-  return next();
-}
-
+/**
+ *
+ * @param notification
+ * @returns
+ */
 export async function handleNotification(notification: Notification) {
   log.info(`Handling new notification ${JSON.stringify(notification)}`);
 
@@ -33,6 +26,10 @@ export async function handleNotification(notification: Notification) {
   return id;
 }
 
+/**
+ *
+ * @returns
+ */
 export async function notificationMonitor() {
   log.info('Monitor checking notifications...');
   // Sort notifications by Seller/scopeName/scopeId/date
@@ -61,11 +58,12 @@ export async function notificationMonitor() {
   });
 
   // Translate scope/id/act to Tray requests
-  // product_insert | product_update | product_delete
   // delete > insert > update
+  // product_insert | product_update | product_delete
   // product_price_insert? | product_price_update | product_price_delete?
   // product_stock_insert? | product_stock_update | product_stock_delete?
   // -------------------------------------------------------------------
+  // delete > insert > update
   // variant_insert | variant_update | variant_delete
   // variant_price_insert? | variant_price_update | variant_price_delete?
   // variant_stock_insert? | variant_stock_update | variant_stock_delete?
@@ -76,18 +74,24 @@ export async function notificationMonitor() {
     return !irrelevants.includes(notification.id);
   });
 
+  // Translate to Actions
+
   // Update assets in SM
 
   // DELETE Mistakes, Multi Updates
-  await deleteNotifications(mistakes.concat(multiUpdates).concat(ordersAndCustomers));
+  await deleteNotifications(mistakes.concat(multiUpdates).concat(ordersAndCustomers).concat(irrelevants));
 
   console.log('Notifications size: ', notifications.length);
   console.log('Mistakes size: ', mistakes.length);
   console.log('filtered: ', noMistakes.length);
 }
 
-// Treat DELETE act - sort genuine delete from mistakes
-// TODO - Check if other scopes (_price, _stock) have possibly mistakes too
+/**
+ * Treat DELETE act - sort genuine delete from mistakes
+ * TODO - Check if other scopes (_price, _stock) have possibly mistakes too
+ * @param notifications
+ * @returns
+ */
 export function getMistakes(notifications: ENotification[]) {
   const mistakes: ENotification[] = [];
   let upserts: ENotification[] = [];
@@ -120,7 +124,11 @@ export function getMistakes(notifications: ENotification[]) {
   });
 }
 
-// Treat Multiple Updates act - remove duplicates
+/**
+ * Treat Multiple Updates act - remove duplicates
+ * @param notifications
+ * @returns
+ */
 export function flatUpdates(notifications: ENotification[]) {
   const duplicates: ENotification[] = [];
   let updates: ENotification[] = [];
@@ -152,7 +160,11 @@ export function flatUpdates(notifications: ENotification[]) {
   });
 }
 
-// Get Order and Customer notifications - out of scope
+/**
+ * Get Order and Customer notifications - out of scope
+ * @param notifications
+ * @returns
+ */
 export function getOrdersAndCustomers(notifications: ENotification[]) {
   const ordersAndCustomers = notifications.filter(
     (notification) => notification.scopeName === Scope.ORDER || notification.scopeName === Scope.CUSTOMER,
@@ -169,8 +181,8 @@ export function getOrdersAndCustomers(notifications: ENotification[]) {
 }
 
 // Get Updates that doesn't make an effect
-// insert and update act == 1 action (insert)
-// delete and update act == 1 action (delete)
+// insert and update == 1 action (insert)
+// delete and update == 1 action (delete)
 export function getIrrelevantUpdates(notifications: ENotification[]) {
   const irrelevants: ENotification[] = [];
   let updates: ENotification[] = [];
@@ -199,5 +211,59 @@ export function getIrrelevantUpdates(notifications: ENotification[]) {
   // array of ids
   return irrelevants.map((notification) => {
     return notification.id;
+  });
+}
+
+export function translateToActions(notifications: ENotification[]) {
+  notifications.forEach((notification) => {
+    switch (`${notification.scopeName}-${notification.act}`) {
+      case `${Scope.PRODUCT}-${Act.INSERT}`:
+        console.log('product insert');
+        // GET TRAY PRODUCT (API)
+        // POPULATE SM PRODUCT OBJECT
+        // CREATE SM PRODUCT (API)
+        // CREATE DB REGISTER (Seller x SM Id x Tray Id)
+        break;
+      case `${Scope.PRODUCT}-${Act.UPDATE}`:
+      case `${Scope.PRODUCT_PRICE}-${Act.UPDATE}`:
+      case `${Scope.PRODUCT_STOCK}-${Act.UPDATE}`:
+      case `${Scope.PRODUCT_PRICE}-${Act.INSERT}`:
+      case `${Scope.PRODUCT_STOCK}-${Act.INSERT}`:
+      case `${Scope.PRODUCT_PRICE}-${Act.DELETE}`:
+      case `${Scope.PRODUCT_STOCK}-${Act.DELETE}`:
+        console.log('product update');
+        // GET TRAY PRODUCT (API)
+        // GET SM ID FROM REGISTER
+        // GET SM PRODUCT
+        // POPULATE SM PRODUCT OBJECT
+        // UPDATE SM PRODUCT (API)
+        // UPDATE DB REGISTER
+        break;
+      case `${Scope.PRODUCT}-${Act.DELETE}`:
+        console.log('product delete');
+        // GET SM ID FROM REGISTER
+        // DELETE SM PRODUCT
+        // UPDATE DB REGISTER
+        break;
+      case `${Scope.VARIANT}-${Act.INSERT}`:
+        console.log('variant insert');
+        break;
+      case `${Scope.VARIANT}-${Act.UPDATE}`:
+      case `${Scope.VARIANT_PRICE}-${Act.UPDATE}`:
+      case `${Scope.VARIANT_STOCK}-${Act.UPDATE}`:
+      case `${Scope.VARIANT_PRICE}-${Act.INSERT}`:
+      case `${Scope.VARIANT_STOCK}-${Act.INSERT}`:
+      case `${Scope.VARIANT_PRICE}-${Act.DELETE}`:
+      case `${Scope.VARIANT_STOCK}-${Act.DELETE}`:
+        console.log('variant update');
+        break;
+      case `${Scope.VARIANT}-${Act.DELETE}`:
+        console.log('variant delete');
+        break;
+      default:
+        log.warn(
+          `Notification with scope/action: ${notification.scopeName}/${notification.act} could not be processed`,
+        );
+    }
   });
 }
