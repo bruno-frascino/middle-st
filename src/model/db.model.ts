@@ -19,6 +19,7 @@ export interface Notification {
   sellerId: number;
   appCode: string;
   createDate: number;
+  complete: number;
 }
 
 export interface NotificationKey {

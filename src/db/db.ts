@@ -85,9 +85,9 @@ export async function getIntegration(sellerId: number, appCode: string) {
 
 export async function insertNotification(notification: Notification) {
   const sql = `INSERT INTO NOTIFICATION(
-              id, scopeName, act, scopeId, sellerId, appCode, createDate) 
+              id, scopeName, act, scopeId, sellerId, appCode, createDate, complete) 
               VALUES(
-              null, $scopeName, $act, $scopeId, $sellerId, $appCode, strftime('%s','now')
+              null, $scopeName, $act, $scopeId, $sellerId, $appCode, strftime('%s','now'), 0
             );`;
 
   return (await run(sql, {

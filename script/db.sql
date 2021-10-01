@@ -21,6 +21,7 @@ CREATE TABLE NOTIFICATION(
   sellerId integer NOT NULL,
   appCode text NOT NULL,
   createDate integer NOT NULL
+  complete BOOLEAN NOT NULL CHECK (complete IN (0,1))
 );
 
 -- Load
