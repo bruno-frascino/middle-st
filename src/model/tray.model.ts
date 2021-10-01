@@ -52,6 +52,7 @@ export function isNotification(object: any) {
     object.scope_id &&
     object.scope_name &&
     object.act &&
+    validAction(object.act) &&
     object.app_code &&
     object.url_notification
   );
@@ -61,3 +62,7 @@ export type TrayKey = {
   sellerId: number;
   appCode: string;
 };
+
+function validAction(act: string) {
+  return act === Act.INSERT || act === Act.UPDATE || act === Act.DELETE;
+}
