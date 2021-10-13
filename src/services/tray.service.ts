@@ -1,7 +1,15 @@
-import { Act, Notification, Scope } from '../model/tray.model';
+import { Act, Notification, Scope, TrayToken } from '../model/tray.model';
 import log from '../logger';
-import { deleteNotifications, getIntegration, getOrderedNotifications, insertNotification } from '../db/db';
-import { Notification as ENotification } from '../model/db.model';
+import {
+  deleteNotifications,
+  getIntegration,
+  getOrderedNotifications,
+  getTDetails,
+  insertNotification,
+  updateTConnectionDetails,
+} from '../db/db';
+import { Notification as ENotification, Integration } from '../model/db.model';
+import { convertStringToUnixTime } from '../utils/utils';
 
 /**
  *
@@ -69,17 +77,16 @@ export async function notificationMonitor() {
   // variant_stock_insert? | variant_stock_update | variant_stock_delete?
 
   // FILTER OUT No Affect Update Notifications
-  const irrelevants = getIrrelevantUpdates(noOutOfScopeUpdatesMistakes);
+  const irrelevant = getIrrelevantUpdates(noOutOfScopeUpdatesMistakes);
   const slimNotifications = noOutOfScopeUpdatesMistakes.filter((notification) => {
-    return !irrelevants.includes(notification.id);
+    return !irrelevant.includes(notification.id);
   });
 
   // Translate to Actions
+  translateToActions(slimNotifications);
 
-  // Update assets in SM
-
-  // DELETE Mistakes, Multi Updates
-  await deleteNotifications(mistakes.concat(multiUpdates).concat(ordersAndCustomers).concat(irrelevants));
+  // DELETE unnecessary notifications
+  await deleteNotifications(mistakes.concat(multiUpdates).concat(ordersAndCustomers).concat(irrelevant));
 
   console.log('Notifications size: ', notifications.length);
   console.log('Mistakes size: ', mistakes.length);
@@ -215,15 +222,17 @@ export function getIrrelevantUpdates(notifications: ENotification[]) {
 }
 
 export function translateToActions(notifications: ENotification[]) {
-  notifications.forEach((notification) => {
+  notifications.forEach(async (notification) => {
     switch (`${notification.scopeName}-${notification.act}`) {
-      case `${Scope.PRODUCT}-${Act.INSERT}`:
+      case `${Scope.PRODUCT}-${Act.INSERT}`: {
         console.log('product insert');
         // GET TRAY PRODUCT (API)
+        const tProduct = await getProduct(notification);
         // POPULATE SM PRODUCT OBJECT
         // CREATE SM PRODUCT (API)
         // CREATE DB REGISTER (Seller x SM Id x Tray Id)
         break;
+      }
       case `${Scope.PRODUCT}-${Act.UPDATE}`:
       case `${Scope.PRODUCT_PRICE}-${Act.UPDATE}`:
       case `${Scope.PRODUCT_STOCK}-${Act.UPDATE}`:
@@ -266,4 +275,208 @@ export function translateToActions(notifications: ENotification[]) {
         );
     }
   });
+}
+
+export async function getProduct(notification: ENotification) {
+  const { sellerId, scopeId, appCode, storeUrl } = notification;
+
+  // TODO - validate input
+  if (!sellerId || !scopeId || !appCode || !storeUrl) {
+    const errorMessage = `Invalid getProduct params`;
+    log.error(errorMessage);
+    throw new Error(errorMessage);
+  }
+
+  // TODO - CHECK HOW TO GET THE INTEGRATION INFO
+  // const token = await getAccessToken(sellerId, appCode, storeUrl);
+  // const requestInit: RequestInit;
+  // fetch();
+}
+
+// First access
+async function getNewAccessToken(code: string, storeUrl: string): Promise<TrayToken> {
+  let errorMessage = '';
+
+  const details = await getTDetails();
+  const body = {
+    consumer_key: details.key,
+    consumer_secret: details.secret,
+    code,
+  };
+
+  const requestInit: RequestInit = {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+  };
+
+  let response;
+  try {
+    response = await fetch(`https://${storeUrl}/auth`, requestInit);
+  } catch (err) {
+    log.error(`Failed to fetch /auth: ${err}`);
+    throw err;
+  }
+
+  let jsonResponse;
+  try {
+    jsonResponse = await response.json();
+  } catch (err) {
+    log.error(`/auth returned an invalid json response`);
+    throw err;
+  }
+
+  // "Unauthorized" or another reason
+  if (response.status >= 400 || !jsonResponse) {
+    const errorReceived = jsonResponse || response.statusText;
+    errorMessage = `Unable to retrieve t token: ${errorReceived}`;
+    log.error(errorMessage);
+    throw new Error(errorMessage);
+  }
+
+  return Promise.resolve(jsonResponse);
+}
+
+// Refresh token
+async function getRefreshedToken(refreshToken: string, storeUrl: string): Promise<TrayToken> {
+  let errorMessage = '';
+
+  const requestInit: RequestInit = {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  };
+
+  let response;
+  try {
+    response = await fetch(`https://${storeUrl}/auth?refresh_token=${refreshToken}`, requestInit);
+  } catch (err) {
+    log.error(`Failed to fetch /auth?refresh_token: ${err}`);
+    throw err;
+  }
+
+  let jsonResponse;
+  try {
+    jsonResponse = await response.json();
+  } catch (err) {
+    log.error(`/auth?refresh_token returned an invalid json response`);
+    throw err;
+  }
+
+  // "Unauthorized" or another reason
+  if (response.status >= 400 || !jsonResponse) {
+    const errorReceived = jsonResponse || response.statusText;
+    errorMessage = `Unable to refresh t token: ${errorReceived}`;
+    log.error(errorMessage);
+    throw new Error(errorMessage);
+  }
+
+  return Promise.resolve(jsonResponse);
+}
+
+export async function initializeConnection(integration: Integration) {
+  // Required connection details
+  const { sellerTId, sellerTKey, sellerTSecret, sellerTStoreCode, sellerTStoreUrl } = integration;
+  if (!sellerTId || !sellerTKey || !sellerTSecret || !sellerTStoreCode || !sellerTStoreUrl) {
+    const errorMessage = `Integration record: ${integration.id} missing required information`;
+    log.error(errorMessage);
+    throw new Error(errorMessage);
+  }
+
+  // valid connection - no action required
+  if (hasValidTokens(integration)) {
+    return;
+  }
+
+  let integrationCopy;
+  // Check connection
+  if (hasExpiredTokens(integration)) {
+    try {
+      const trayToken = await getNewAccessToken(sellerTStoreCode, sellerTStoreUrl);
+      integrationCopy = copyToken(integration, trayToken);
+    } catch (err) {
+      log.error(`Access token could not be retrieved in initialization for integration: ${integration.id}`);
+      return;
+    }
+  }
+
+  // access connection expired but not refresh
+  if (hasOnlyAccessTokenExpired(integration)) {
+    try {
+      if (integration.sellerTRefreshToken) {
+        const trayToken = await getRefreshedToken(integration.sellerTRefreshToken, sellerTStoreUrl);
+        integrationCopy = copyToken(integration, trayToken);
+      }
+    } catch (err) {
+      log.error(`Access token could not be retrieved in initialization for integration: ${integration.id}`);
+      return;
+    }
+  }
+
+  // Update record
+  integrationCopy && updateTConnectionDetails(integrationCopy);
+}
+
+// no connection details or
+// access and refresh expired
+function hasExpiredTokens(integration: Integration) {
+  const { sellerTAccessToken, sellerTRefreshToken, sellerTAccessExpirationDate, sellerTRefreshExpirationDate } =
+    integration;
+
+  if (!sellerTAccessToken || !sellerTRefreshToken || !sellerTAccessExpirationDate || !sellerTRefreshExpirationDate) {
+    return true;
+  }
+
+  // Date.now(); milliseconds elapsed since January 1, 1970
+  const now = Math.floor(Date.now() / 1000); // Unix time is Seconds since 01-01-70
+  return (
+    sellerTAccessExpirationDate &&
+    sellerTAccessExpirationDate < now &&
+    sellerTRefreshExpirationDate &&
+    sellerTRefreshExpirationDate < now
+  );
+}
+
+function hasOnlyAccessTokenExpired(integration: Integration) {
+  const { sellerTAccessToken, sellerTRefreshToken, sellerTAccessExpirationDate, sellerTRefreshExpirationDate } =
+    integration;
+
+  if (!sellerTAccessToken || !sellerTRefreshToken || !sellerTAccessExpirationDate || !sellerTRefreshExpirationDate) {
+    return false;
+  }
+
+  // Date.now(); milliseconds elapsed since January 1, 1970
+  const now = Math.floor(Date.now() / 1000); // Unix time is Seconds since 01-01-70
+  return (
+    sellerTAccessExpirationDate &&
+    sellerTAccessExpirationDate < now &&
+    sellerTRefreshExpirationDate &&
+    sellerTRefreshExpirationDate >= now
+  );
+}
+
+function hasValidTokens(integration: Integration) {
+  const { sellerTAccessToken, sellerTRefreshToken, sellerTAccessExpirationDate, sellerTRefreshExpirationDate } =
+    integration;
+
+  if (!sellerTAccessToken || !sellerTRefreshToken || !sellerTAccessExpirationDate || !sellerTRefreshExpirationDate) {
+    return false;
+  }
+
+  // Date.now(); milliseconds elapsed since January 1, 1970
+  const now = Math.floor(Date.now() / 1000); // Unix time is Seconds since 01-01-70
+  return (
+    sellerTAccessExpirationDate &&
+    sellerTAccessExpirationDate >= now &&
+    sellerTRefreshExpirationDate &&
+    sellerTRefreshExpirationDate >= now
+  );
+}
+
+function copyToken(integration: Integration, trayToken: TrayToken) {
+  const integrationCopy = { ...integration };
+  integrationCopy.sellerTAccessToken = trayToken.access_token;
+  integrationCopy.sellerTRefreshToken = trayToken.refresh_token;
+  integrationCopy.sellerTAccessExpirationDate = convertStringToUnixTime(trayToken.date_expiration_access_token);
+  integrationCopy.sellerTRefreshExpirationDate = convertStringToUnixTime(trayToken.date_expiration_refresh_token);
+  return integrationCopy;
 }

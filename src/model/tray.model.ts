@@ -58,11 +58,24 @@ export function isNotification(object: any) {
   );
 }
 
-export type TrayKey = {
+export interface TrayKey {
   sellerId: number;
+  scopeId: number;
   appCode: string;
-};
+}
 
 function validAction(act: string) {
   return act === Act.INSERT || act === Act.UPDATE || act === Act.DELETE;
+}
+
+export interface TrayToken {
+  code: number; // http code: 200
+  message: string;
+  access_token: string;
+  refresh_token: string;
+  date_expiration_access_token: string; // '2021-03-02 14:58:21';
+  date_expiration_refresh_token: string; // '2021-04-01 11:58:21';
+  date_activated: string; // '2021-03-02 11:58:21';
+  api_host: string; // 'https://urldaloja.com.br/web_api';
+  store_id: number;
 }

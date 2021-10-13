@@ -4,7 +4,8 @@ import config from 'config';
 import log from './logger';
 import * as lite from './db/db';
 import routes from './routes';
-import { notificationMonitor } from './services/tray.service';
+import { initializeConnection as initializeTConnection, notificationMonitor } from './services/tray.service';
+import { getIntegrations } from './db/db';
 
 // export NODE_ENV=development (default)
 // export NODE_ENV=production (when going to production)
@@ -17,10 +18,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // database connection and other initializations
-lite.connect(() => {
+lite.connect(async () => {
   // TODO - consider proactively warm up dependency systems connections
   // initializeSM();
-  // initializeTray();
+  await initializeSystem();
 
   app.listen(port, host, () => {
     log.info(`⚡️[server]: Server is running at http://${host}:${port}`);
@@ -31,3 +32,21 @@ lite.connect(() => {
   // Start Tray monitor
   setInterval(notificationMonitor, tMonitor);
 });
+
+async function initializeSystem() {
+  // GET INTEGRATIONS
+  const integrations = await getIntegrations();
+  if (!integrations || integrations.length === 0) {
+    log.warn(`No Integrations could be found`);
+    return;
+  }
+
+  try {
+    integrations.forEach((integration) => {
+      initializeTConnection(integration);
+      // ini
+    });
+  } catch (error) {
+    log.error(error.message);
+  }
+}

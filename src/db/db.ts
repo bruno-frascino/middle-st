@@ -1,7 +1,7 @@
 import config from 'config';
 import sqlite3 from 'sqlite3';
 import log from '../logger';
-import { Notification as ENotification, Integration } from '../model/db.model';
+import { Notification as ENotification, Integration, TDetails } from '../model/db.model';
 import { Notification } from '../model/tray.model';
 
 let db: sqlite3.Database;
@@ -83,11 +83,19 @@ export async function getIntegration(sellerId: number, appCode: string) {
   return (await getRow(sql, [sellerId, appCode])) as Integration;
 }
 
+export async function getIntegrations() {
+  const sql = `SELECT * 
+              FROM INTEGRATION 
+              ORDER BY ID`;
+
+  return (await all(sql)) as Integration[];
+}
+
 export async function insertNotification(notification: Notification) {
   const sql = `INSERT INTO NOTIFICATION(
-              id, scopeName, act, scopeId, sellerId, appCode, createDate, complete) 
+              id, scopeName, act, scopeId, sellerId, appCode, storeUrl, createDate, complete) 
               VALUES(
-              null, $scopeName, $act, $scopeId, $sellerId, $appCode, strftime('%s','now'), 0
+              null, $scopeName, $act, $scopeId, $sellerId, $appCode, $storeUrl, strftime('%s','now'), 0
             );`;
 
   return (await run(sql, {
@@ -96,6 +104,7 @@ export async function insertNotification(notification: Notification) {
     $scopeId: notification.scope_id,
     $sellerId: notification.seller_id,
     $appCode: notification.app_code,
+    $storeUrl: notification.url_notification,
   })) as Object;
 }
 
@@ -110,4 +119,25 @@ export async function deleteNotifications(ids: number[]) {
   const sql = `DELETE FROM NOTIFICATION WHERE id IN(${params})`;
 
   return (await run(sql)) as Object;
+}
+
+export async function getTDetails() {
+  const sql = `SELECT * FROM T_DETAILS WHERE ID = 1`;
+  return (await getRow(sql)) as TDetails;
+}
+
+export async function updateTConnectionDetails(integration: Integration) {
+  const sql = `UPDATE INTEGRATION 
+  SET 
+    sellerTAccessToken = $accessToken,
+    sellerTRefreshToken = $refreshToken,
+    sellerTAccessExpirationDate = $accessExpirationDate,
+    sellerTRefreshExpirationDate = $refreshExpirationDate
+  WHERE ID = $id`;
+  return (await run(sql, {
+    $accessToken: integration.sellerTAccessToken,
+    $refreshToken: integration.sellerTRefreshToken,
+    $accessExpirationDate: integration.sellerTAccessExpirationDate,
+    $refreshExpirationDate: integration.sellerTRefreshExpirationDate,
+  })) as Object;
 }
