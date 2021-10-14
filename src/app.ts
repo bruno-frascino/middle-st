@@ -4,7 +4,7 @@ import config from 'config';
 import log from './logger';
 import * as lite from './db/db';
 import routes from './routes';
-import { initializeConnection as initializeTConnection, notificationMonitor } from './services/tray.service';
+import { manageSystemConnection as manageTSystemConnection, notificationMonitor } from './services/tray.service';
 import { getIntegrations } from './db/db';
 
 // export NODE_ENV=development (default)
@@ -42,9 +42,8 @@ async function initializeSystem() {
   }
 
   try {
-    integrations.forEach((integration) => {
-      initializeTConnection(integration);
-      // ini
+    integrations.forEach(async (integration) => {
+      await manageTSystemConnection(integration);
     });
   } catch (error) {
     log.error(error.message);
