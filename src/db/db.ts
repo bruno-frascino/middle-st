@@ -74,13 +74,13 @@ export function all(sql: string, params: {} = {}) {
   });
 }
 
-export async function getIntegration(sellerId: number, appCode: string) {
+export async function getIntegrationByT(tSellerId: number, tAppCode: string) {
   const sql = `SELECT * 
               FROM INTEGRATION 
               WHERE sellerTId = ? 
               AND sellerTStoreCode = ?`;
 
-  return (await getRow(sql, [sellerId, appCode])) as Integration;
+  return (await getRow(sql, [tSellerId, tAppCode])) as Integration;
 }
 
 export async function getIntegrations() {
