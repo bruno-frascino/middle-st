@@ -79,3 +79,136 @@ export interface TrayToken {
   api_host: string; // 'https://urldaloja.com.br/web_api';
   store_id: number;
 }
+
+export interface Product {
+  Product: {
+    id: number;
+    ean: string;
+    modified: string; // 2019-01-21 09:22:21
+    slug: string; // produto-teste
+    ncm: string;
+    name: string;
+    title: string;
+    description: string;
+    description_small: string;
+    price: number;
+    cost_price: number;
+    promotional_price: number;
+    start_promotion: string;
+    end_promotion: string;
+    brand: string;
+    model: string;
+    weight: number;
+    length: number;
+    width: number;
+    height: number;
+    cubic_weight: number;
+    stock: number;
+    category_id: number; // Código da categoria principal do produto
+    available: number; // produto disponivel - Tabela A
+    availability: string; // disponibilidade do produto - "Disponível em 3 dia útil"
+    reference: string;
+    hot: number; // produto em destaque - tabela E
+    release: number; // produto lancamento - tabela D
+    additional_button: number; // botao adicional do produto
+    has_variation: number; // Tabela F
+    has_acceptance_terms: number; // Produto com termo de aceitação (Veja Tabela G)
+    has_buy_together: number; // Produto com compre junto (Veja Tabela H)
+    additional_message: string;
+    warranty: string;
+    rating: number;
+    count_rating: number; // Valor da classificação do produto
+    quantity_sold: number;
+    ProductImage: ProductImage[];
+    image: number; // produto com imagem
+    url: UrlType;
+    created: string;
+    Properties: Properties;
+    payment_option: string; // "R$ 9,70 à vista com desconto Boleto - Yapay",
+    related_categories: number[]; // Categorias adicionais do produto
+    release_date: string;
+    shortcut: string; // atalho do produto
+    virtual_product: number; // tabela I
+    minimum_stock: number;
+    minimum_stock_alert: number;
+    promotion_id: number;
+    included_items: string; // informacao adicional 2
+    related_products: number[]; // produtos relacionados
+    free_shipping: number; // Produto com frete grátis (Veja Tabela C)
+    current_price: number;
+    ipi: number;
+    acceptance_term_option: number; // Opção do termo de aceitação do produto
+    acceptance_term: number;
+    warranty_days: number;
+    availability_days: number;
+    metatag: TypeContent[];
+    Variant: Variant[];
+    is_kit: number; // 0 | 1
+    activation_date: string;
+    deactivation_date: string;
+    dollar_cost_price: number;
+    brand_id: number; // codigo da marca
+    category_name: string;
+    payment_options_details: PaymentDetails[];
+    //   [
+    //     {
+    //         "display_name": "Boleto - Yapay",
+    //         "type": "bank_billet",
+    //         "plots": "1",
+    //         "value": "9.70",
+    //         "tax": "0.00"
+    //     }
+    // ],
+    video: string;
+    percentage_discount: number;
+    upon_request: number; // 0 | 1
+    available_for_purchase: number; // 0 | 1
+    all_categories: number[];
+    // TODO - check this type - no pattern
+    AdditionalInfos: [{ [key: string]: [key: string] }];
+  };
+}
+
+interface ProductImage {
+  http: string;
+  https: string;
+  thumbs: Thumbs;
+}
+
+interface Thumbs {
+  '30': UrlType;
+  '90': UrlType;
+  '180': UrlType;
+}
+interface UrlType {
+  http: string;
+  https: string;
+}
+
+// TODO - Understand this type better
+interface Properties {
+  [key: string]: [key: string];
+}
+// Example:
+// "Properties": {
+//   "Teste Caracteristica": [
+//       "PP"
+//   ]
+// },
+
+interface TypeContent {
+  type: string;
+  content: string;
+}
+
+interface Variant {
+  id: number;
+}
+
+interface PaymentDetails {
+  display_name: string;
+  type: string;
+  plots: number;
+  value: number;
+  tax: number;
+}

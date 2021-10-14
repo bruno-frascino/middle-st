@@ -1,8 +1,8 @@
-import { Act, Notification, Scope, TrayToken } from '../model/tray.model';
+import { Act, Notification, Product, Scope, TrayToken } from '../model/tray.model';
 import log from '../logger';
 import {
   deleteNotifications,
-  getIntegration,
+  getIntegrationByT,
   getOrderedNotifications,
   getTDetails,
   insertNotification,
@@ -10,6 +10,7 @@ import {
 } from '../db/db';
 import { Notification as ENotification, Integration } from '../model/db.model';
 import { convertStringToUnixTime } from '../utils/utils';
+import { manageNotifications } from './middle.service';
 
 /**
  *
@@ -19,10 +20,12 @@ import { convertStringToUnixTime } from '../utils/utils';
 export async function handleNotification(notification: Notification) {
   log.info(`Handling new notification ${JSON.stringify(notification)}`);
 
+  const { seller_id, app_code } = notification;
+
   // Get seller's integration details
-  const integration = await getIntegration(notification.seller_id, notification.app_code);
+  const integration = await getIntegrationByT(seller_id, app_code);
   if (!integration) {
-    throw new Error('Seller not found');
+    throw new Error(`T Seller not found for id: ${seller_id} and app: ${app_code}`);
   }
 
   // Store Notification
@@ -82,8 +85,10 @@ export async function notificationMonitor() {
     return !irrelevant.includes(notification.id);
   });
 
-  // Translate to Actions
-  translateToActions(slimNotifications);
+  // Integrate with other system
+  // TODO - study how to use an interface here so we can detach this call
+  // from the implementation, making flexible if we change subsystem
+  manageNotifications(slimNotifications);
 
   // DELETE unnecessary notifications
   await deleteNotifications(mistakes.concat(multiUpdates).concat(ordersAndCustomers).concat(irrelevant));
@@ -221,76 +226,55 @@ export function getIrrelevantUpdates(notifications: ENotification[]) {
   });
 }
 
-export function translateToActions(notifications: ENotification[]) {
-  notifications.forEach(async (notification) => {
-    switch (`${notification.scopeName}-${notification.act}`) {
-      case `${Scope.PRODUCT}-${Act.INSERT}`: {
-        console.log('product insert');
-        // GET TRAY PRODUCT (API)
-        const tProduct = await getProduct(notification);
-        // POPULATE SM PRODUCT OBJECT
-        // CREATE SM PRODUCT (API)
-        // CREATE DB REGISTER (Seller x SM Id x Tray Id)
-        break;
-      }
-      case `${Scope.PRODUCT}-${Act.UPDATE}`:
-      case `${Scope.PRODUCT_PRICE}-${Act.UPDATE}`:
-      case `${Scope.PRODUCT_STOCK}-${Act.UPDATE}`:
-      case `${Scope.PRODUCT_PRICE}-${Act.INSERT}`:
-      case `${Scope.PRODUCT_STOCK}-${Act.INSERT}`:
-      case `${Scope.PRODUCT_PRICE}-${Act.DELETE}`:
-      case `${Scope.PRODUCT_STOCK}-${Act.DELETE}`:
-        console.log('product update');
-        // GET TRAY PRODUCT (API)
-        // GET SM ID FROM REGISTER
-        // GET SM PRODUCT
-        // POPULATE SM PRODUCT OBJECT
-        // UPDATE SM PRODUCT (API)
-        // UPDATE DB REGISTER
-        break;
-      case `${Scope.PRODUCT}-${Act.DELETE}`:
-        console.log('product delete');
-        // GET SM ID FROM REGISTER
-        // DELETE SM PRODUCT
-        // UPDATE DB REGISTER
-        break;
-      case `${Scope.VARIANT}-${Act.INSERT}`:
-        console.log('variant insert');
-        break;
-      case `${Scope.VARIANT}-${Act.UPDATE}`:
-      case `${Scope.VARIANT_PRICE}-${Act.UPDATE}`:
-      case `${Scope.VARIANT_STOCK}-${Act.UPDATE}`:
-      case `${Scope.VARIANT_PRICE}-${Act.INSERT}`:
-      case `${Scope.VARIANT_STOCK}-${Act.INSERT}`:
-      case `${Scope.VARIANT_PRICE}-${Act.DELETE}`:
-      case `${Scope.VARIANT_STOCK}-${Act.DELETE}`:
-        console.log('variant update');
-        break;
-      case `${Scope.VARIANT}-${Act.DELETE}`:
-        console.log('variant delete');
-        break;
-      default:
-        log.warn(
-          `Notification with scope/action: ${notification.scopeName}/${notification.act} could not be processed`,
-        );
-    }
-  });
-}
-
-export async function getProduct(notification: ENotification) {
+export async function getProduct(notification: ENotification): Promise<Product> {
   const { sellerId, scopeId, appCode, storeUrl } = notification;
 
-  // TODO - validate input
   if (!sellerId || !scopeId || !appCode || !storeUrl) {
     const errorMessage = `Invalid getProduct params`;
     log.error(errorMessage);
     throw new Error(errorMessage);
   }
 
-  // TODO - CHECK HOW TO GET THE INTEGRATION INFO
-  // const token = await getAccessToken(sellerId, appCode, storeUrl);
-  // const requestInit: RequestInit;
-  // fetch();
+  const access = await provideAccessToken(notification);
+
+  let errorMessage = '';
+
+  const requestInit: RequestInit = {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  };
+
+  let response;
+  try {
+    response = await fetch(`https://${storeUrl}/products/${scopeId}?access_token=${access}`, requestInit);
+  } catch (err) {
+    log.error(`Failed to fetch /products/${scopeId} Error: ${err}`);
+    throw err;
+  }
+
+  let jsonResponse;
+  try {
+    jsonResponse = await response.json();
+  } catch (err) {
+    log.error(`/products/${scopeId} returned an invalid json response`);
+    throw err;
+  }
+
+  // "Unauthorized" or another reason
+  if (response.status >= 400 || !jsonResponse) {
+    const errorReceived = jsonResponse || response.statusText;
+    errorMessage = `Unable to retrieve product: ${errorReceived}`;
+    log.error(errorMessage);
+    throw new Error(errorMessage);
+  }
+
+  return Promise.resolve(jsonResponse);
+}
+
+export async function provideAccessToken(notification: ENotification) {
+  const { sellerId, appCode } = notification;
+  const integration = await getIntegrationByT(sellerId, appCode);
+  return manageSystemConnection(integration);
 }
 
 // First access
@@ -373,18 +357,18 @@ async function getRefreshedToken(refreshToken: string, storeUrl: string): Promis
   return Promise.resolve(jsonResponse);
 }
 
-export async function initializeConnection(integration: Integration) {
+export async function manageSystemConnection(integration: Integration) {
   // Required connection details
-  const { sellerTId, sellerTKey, sellerTSecret, sellerTStoreCode, sellerTStoreUrl } = integration;
-  if (!sellerTId || !sellerTKey || !sellerTSecret || !sellerTStoreCode || !sellerTStoreUrl) {
-    const errorMessage = `Integration record: ${integration.id} missing required information`;
+  const { id, sellerTId, sellerTStoreCode, sellerTStoreUrl, sellerTRefreshToken } = integration;
+  if (!sellerTId || !sellerTStoreCode || !sellerTStoreUrl) {
+    const errorMessage = `Integration record: ${id} missing required information`;
     log.error(errorMessage);
     throw new Error(errorMessage);
   }
 
   // valid connection - no action required
   if (hasValidTokens(integration)) {
-    return;
+    return integration.sellerTAccessToken;
   }
 
   let integrationCopy;
@@ -394,26 +378,33 @@ export async function initializeConnection(integration: Integration) {
       const trayToken = await getNewAccessToken(sellerTStoreCode, sellerTStoreUrl);
       integrationCopy = copyToken(integration, trayToken);
     } catch (err) {
-      log.error(`Access token could not be retrieved in initialization for integration: ${integration.id}`);
-      return;
+      const errorMessage = `New access token could not be retrieved for integration: ${id}`;
+      log.error(errorMessage);
+      throw new Error(errorMessage);
     }
   }
 
   // access connection expired but not refresh
   if (hasOnlyAccessTokenExpired(integration)) {
     try {
-      if (integration.sellerTRefreshToken) {
-        const trayToken = await getRefreshedToken(integration.sellerTRefreshToken, sellerTStoreUrl);
+      if (sellerTRefreshToken) {
+        const trayToken = await getRefreshedToken(sellerTRefreshToken, sellerTStoreUrl);
         integrationCopy = copyToken(integration, trayToken);
       }
     } catch (err) {
-      log.error(`Access token could not be retrieved in initialization for integration: ${integration.id}`);
-      return;
+      const errorMessage = `Refreshed token could not be retrieved for integration: ${id}`;
+      log.error(errorMessage);
+      throw new Error(errorMessage);
     }
   }
 
-  // Update record
-  integrationCopy && updateTConnectionDetails(integrationCopy);
+  if (integrationCopy) {
+    // Update record
+    await updateTConnectionDetails(integrationCopy);
+    return integrationCopy.sellerTAccessToken;
+  }
+
+  throw new Error(`Unable to manage connection for integration: ${id}`);
 }
 
 // no connection details or
