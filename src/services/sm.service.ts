@@ -6,7 +6,7 @@ async function getAccessToken({ key, secret }: { key: string; secret: string }):
   let errorMessage = '';
 
   if (!key || !secret) {
-    errorMessage = 'Invalid getToken parameters';
+    errorMessage = 'Invalid SM getToken parameters';
     log.error(errorMessage);
     throw new Error(errorMessage);
   }
@@ -28,7 +28,7 @@ async function getAccessToken({ key, secret }: { key: string; secret: string }):
   try {
     response = await fetch(`${baseUrl}/api/v1/seller/login`, requestInit);
   } catch (err) {
-    log.error(`Failed to fetch /seller/login: ${err}`);
+    log.error(`Failed to fetch SM path /seller/login: ${err}`);
     throw err;
   }
 
@@ -43,7 +43,7 @@ async function getAccessToken({ key, secret }: { key: string; secret: string }):
   // "Unauthorized" or another reason
   if (response.status >= 400 || !jsonResponse) {
     const errorReceived = jsonResponse || response.statusText;
-    errorMessage = `Unable to retrieve token: ${errorReceived}`;
+    errorMessage = `Unable to retrieve SM token: ${errorReceived}`;
     log.error(errorMessage);
     throw new Error(errorMessage);
   }
