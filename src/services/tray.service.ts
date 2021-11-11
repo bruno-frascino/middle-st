@@ -2,6 +2,7 @@ import { Act, Notification, Product, Scope, TrayToken } from '../model/tray.mode
 import log from '../logger';
 import {
   deleteNotifications,
+  getIntegrationById,
   getIntegrationByT,
   getOrderedNotifications,
   getTDetails,
@@ -29,7 +30,7 @@ export async function handleNotification(notification: Notification) {
   }
 
   // Store Notification
-  const id = await insertNotification(notification);
+  const id = await insertNotification(notification, integration.id);
   if (!id) {
     throw new Error('Failed to save notification');
   }
@@ -41,7 +42,7 @@ export async function handleNotification(notification: Notification) {
  *
  * @returns
  */
-export async function notificationMonitor() {
+export async function monitorNotifications() {
   log.info('Monitor checking notifications...');
   // Sort notifications by Seller/scopeName/scopeId/date
   const notifications = await getOrderedNotifications();
@@ -100,6 +101,7 @@ export async function notificationMonitor() {
 
 /**
  * Treat DELETE act - sort genuine delete from mistakes
+ * A mistake is when there is insert or update with a delete
  * TODO - Check if other scopes (_price, _stock) have possibly mistakes too
  * @param notifications
  * @returns
@@ -272,16 +274,14 @@ export async function getProduct(notification: ENotification): Promise<Product> 
 }
 
 export async function provideAccessToken(notification: ENotification) {
-  const { sellerId, appCode } = notification;
-  const integration = await getIntegrationByT(sellerId, appCode);
-  return manageSystemConnection(integration);
+  return manageSystemConnection(await getIntegrationById(notification.integrationId));
 }
 
 // First access
 async function getNewAccessToken(code: string, storeUrl: string): Promise<TrayToken> {
   let errorMessage = '';
 
-  const details = await getTDetails();
+  const details = await getTDetails(); // unique for this system
   const body = {
     consumer_key: details.key,
     consumer_secret: details.secret,

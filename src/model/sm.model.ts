@@ -1,6 +1,7 @@
 export interface SmToken {
   accessToken: string;
-  expires: string;
+  expiresIn: number;
+  tokenType: string;
 }
 
 export interface Shipping {
@@ -72,4 +73,9 @@ export interface Product {
   seo: Seo;
   google_shopping: GoogleShopping;
   skus: Sku[];
+}
+
+export enum Condition {
+  NOVO = 'Novo',
+  USADO = 'Usado',
 }

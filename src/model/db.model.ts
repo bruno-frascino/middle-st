@@ -8,7 +8,7 @@ export interface Integration {
   sellerSStoreUrl?: string;
   sellerSAccessToken?: string;
   sellerSRefreshToken?: string;
-  sellerSAccessExpirationDate?: number;
+  sellerSAccessExpirationDate?: number; // stored in Unix time
   sellerSRefreshExpirationDate?: number;
   sellerTId: number;
   sellerTKey?: string;
@@ -29,6 +29,7 @@ export interface Notification {
   sellerId: number;
   appCode: string;
   storeUrl: string;
+  integrationId: number;
   createDate: number;
   complete: number;
 }

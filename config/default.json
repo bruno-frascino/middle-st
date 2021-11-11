@@ -5,6 +5,6 @@
   "verbose": "true",
   "sBaseUrl": "https://sandbox.smserver.com.br",
   "tBaseUrl": "",
-  "tMonitor": 30000,
-  "sMonitor": 30000
+  "tMonitorInterval": 30000,
+  "sMonitorInterval": 30000
 }

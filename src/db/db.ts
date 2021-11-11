@@ -83,6 +83,14 @@ export async function getIntegrationByT(tSellerId: number, tAppCode: string) {
   return (await getRow(sql, [tSellerId, tAppCode])) as Integration;
 }
 
+export async function getIntegrationById(id: number) {
+  const sql = `SELECT * 
+              FROM INTEGRATION 
+              WHERE id = ${id}`;
+
+  return (await getRow(sql)) as Integration;
+}
+
 export async function getIntegrations() {
   const sql = `SELECT * 
               FROM INTEGRATION 
@@ -91,11 +99,11 @@ export async function getIntegrations() {
   return (await all(sql)) as Integration[];
 }
 
-export async function insertNotification(notification: Notification) {
+export async function insertNotification(notification: Notification, integrationId: number) {
   const sql = `INSERT INTO NOTIFICATION(
-              id, scopeName, act, scopeId, sellerId, appCode, storeUrl, createDate, complete) 
+              id, scopeName, act, scopeId, sellerId, appCode, storeUrl, integrationId, createDate, complete) 
               VALUES(
-              null, $scopeName, $act, $scopeId, $sellerId, $appCode, $storeUrl, strftime('%s','now'), 0
+              null, $scopeName, $act, $scopeId, $sellerId, $appCode, $storeUrl, $integrationId, strftime('%s','now'), 0
             );`;
 
   return (await run(sql, {
@@ -105,6 +113,7 @@ export async function insertNotification(notification: Notification) {
     $sellerId: notification.seller_id,
     $appCode: notification.app_code,
     $storeUrl: notification.url_notification,
+    $integrationId: integrationId,
   })) as Object;
 }
 
@@ -135,9 +144,23 @@ export async function updateTConnectionDetails(integration: Integration) {
     sellerTRefreshExpirationDate = $refreshExpirationDate
   WHERE ID = $id`;
   return (await run(sql, {
+    $id: integration.id,
     $accessToken: integration.sellerTAccessToken,
     $refreshToken: integration.sellerTRefreshToken,
     $accessExpirationDate: integration.sellerTAccessExpirationDate,
     $refreshExpirationDate: integration.sellerTRefreshExpirationDate,
+  })) as Object;
+}
+
+export async function updateSConnectionDetails(integration: Integration) {
+  const sql = `UPDATE INTEGRATION 
+  SET 
+    sellerSAccessToken = $accessToken,
+    sellerSAccessExpirationDate = $accessExpirationDate,
+  WHERE ID = $id`;
+  return (await run(sql, {
+    $id: integration.id,
+    $accessToken: integration.sellerSAccessToken,
+    $accessExpirationDate: integration.sellerSAccessExpirationDate,
   })) as Object;
 }

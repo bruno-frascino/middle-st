@@ -14,3 +14,9 @@ export function convertStringToUnixTime(dateString: string) {
   );
   return Math.floor(dateTimeObject.getTime() / 1000);
 }
+
+// Unix time
+export function addToCurrentTime(seconds: number) {
+  const now = Math.floor(Date.now() / 1000); // Unix time is Seconds since 01-01-70
+  return now + seconds;
+}
