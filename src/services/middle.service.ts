@@ -10,6 +10,7 @@ import {
 import log from '../logger';
 import {
   createProduct as createSProduct,
+  getProductById as getSProductById,
   monitorChanges,
   warmUpSystemConnection as warmUpSSystemConnection,
 } from './sm.service';
@@ -52,20 +53,27 @@ export function manageNotifications(notifications: Notification[]) {
     switch (`${notification.scopeName}-${notification.act}`) {
       case `${Scope.PRODUCT}-${Act.INSERT}`: {
         console.log('product insert');
-        // GET TRAY PRODUCT (API)
-        const tProduct = await getTProduct(notification);
-        // POPULATE SM PRODUCT OBJECT
-        const sProduct = convertToSProduct(tProduct);
-        // CREATE SM PRODUCT (API)
-        const apiSProduct = await createSProduct(sProduct, notification);
-        // CREATE DB REGISTER (Seller x SM Id x Tray Id)
-        const iProduct: IProduct = await registerIntegratedProduct(
-          notification.integrationId,
-          tProduct.Product.id,
-          apiSProduct.id,
-        );
-        log.info(`A new product has been integrated: ${iProduct.id}`);
-        break;
+        let tProductId;
+        try {
+          // GET TRAY PRODUCT (API)
+          const tProduct = await getTProduct(notification);
+          tProductId = tProduct.Product.id;
+          // POPULATE SM PRODUCT OBJECT
+          const sProduct = convertToSProduct(tProduct);
+          // CREATE SM PRODUCT (API)
+          const apiSProduct = await createSProduct(sProduct, notification);
+          // CREATE DB REGISTER (Seller x SM Id x Tray Id)
+          const iProduct: IProduct = await registerIntegratedProduct(
+            notification.integrationId,
+            tProduct.Product.id,
+            apiSProduct.id,
+          );
+          log.info(`A new product has been integrated: ${iProduct.id}`);
+          break;
+        } catch (error) {
+          log.error(`Failed to integrate Product: ${tProductId} for Integration: ${notification.integrationId}`);
+          break;
+        }
       }
       case `${Scope.PRODUCT}-${Act.UPDATE}`:
       case `${Scope.PRODUCT_PRICE}-${Act.UPDATE}`:
@@ -78,8 +86,9 @@ export function manageNotifications(notifications: Notification[]) {
         // GET TRAY PRODUCT (API)
         const tProduct = await getTProduct(notification);
         // GET SM ID FROM REGISTER
-        const iProduct = getIProductByT(notification.integrationId, tProduct.Product.id);
+        const iProduct = await getIProductByT(notification.integrationId, tProduct.Product.id);
         // GET SM PRODUCT
+        const sProduct = await getSProductById(iProduct.sProductId, notification);
         // POPULATE SM PRODUCT OBJECT
         // UPDATE SM PRODUCT (API)
         // UPDATE DB REGISTER
