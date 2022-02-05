@@ -1,19 +1,19 @@
 import config from 'config';
-import { Notification } from '../model/db.model';
+import { IProduct, Notification } from '../model/db.model';
 import { Act, Scope, Product as TProduct } from '../model/tray.model';
 import { Condition, Product as SProduct } from '../model/sm.model';
 import {
   getProduct as getTProduct,
-  manageSystemConnection as manageTSystemConnection,
   monitorNotifications,
+  warmUpSystemConnection as warmUpTSystemConnection,
 } from './tray.service';
 import log from '../logger';
 import {
   createProduct as createSProduct,
-  manageSystemConnection as manageSSystemConnection,
   monitorChanges,
+  warmUpSystemConnection as warmUpSSystemConnection,
 } from './sm.service';
-import { getIntegrations } from '../db/db';
+import { createIProduct, getIProductByT, getIntegrations } from '../db/db';
 
 /**
  *  This Service understands both systems
@@ -29,8 +29,8 @@ export async function initializeSystemConnections() {
 
   try {
     integrations.forEach(async (integration) => {
-      await manageTSystemConnection(integration);
-      await manageSSystemConnection(integration);
+      await warmUpTSystemConnection(integration);
+      await warmUpSSystemConnection(integration);
     });
   } catch (error) {
     log.error(`System connections initialization error: ${error}`);
@@ -57,10 +57,14 @@ export function manageNotifications(notifications: Notification[]) {
         // POPULATE SM PRODUCT OBJECT
         const sProduct = convertToSProduct(tProduct);
         // CREATE SM PRODUCT (API)
-        const productId = await createSProduct(sProduct, notification);
+        const apiSProduct = await createSProduct(sProduct, notification);
         // CREATE DB REGISTER (Seller x SM Id x Tray Id)
-        registerProduct(tProduct, sProduct, notification);
-
+        const iProduct: IProduct = await registerIntegratedProduct(
+          notification.integrationId,
+          tProduct.Product.id,
+          apiSProduct.id,
+        );
+        log.info(`A new product has been integrated: ${iProduct.id}`);
         break;
       }
       case `${Scope.PRODUCT}-${Act.UPDATE}`:
@@ -69,15 +73,18 @@ export function manageNotifications(notifications: Notification[]) {
       case `${Scope.PRODUCT_PRICE}-${Act.INSERT}`:
       case `${Scope.PRODUCT_STOCK}-${Act.INSERT}`:
       case `${Scope.PRODUCT_PRICE}-${Act.DELETE}`:
-      case `${Scope.PRODUCT_STOCK}-${Act.DELETE}`:
+      case `${Scope.PRODUCT_STOCK}-${Act.DELETE}`: {
         console.log('product update');
         // GET TRAY PRODUCT (API)
+        const tProduct = await getTProduct(notification);
         // GET SM ID FROM REGISTER
+        const iProduct = getIProductByT(notification.integrationId, tProduct.Product.id);
         // GET SM PRODUCT
         // POPULATE SM PRODUCT OBJECT
         // UPDATE SM PRODUCT (API)
         // UPDATE DB REGISTER
         break;
+      }
       case `${Scope.PRODUCT}-${Act.DELETE}`:
         console.log('product delete');
         // GET SM ID FROM REGISTER
@@ -214,8 +221,17 @@ export function convertToSCategory(tCategory_id: number) {
   return [tCategory_id + 1];
 }
 
-export function registerProduct(tProduct: TProduct, sProduct: SProduct, notification: Notification) {
-  // TODO
+// T to S
+export async function registerIntegratedProduct(integrationId: number, tProductId: number, sProductId: number) {
+  const iProductDetails = {
+    integrationId,
+    tProductId,
+    sProductId,
+  };
+
+  return createIProduct(iProductDetails);
+  // TODO - check Unhappy or what to do with the returned value
+  // we need to log it
 }
 
 // TODO

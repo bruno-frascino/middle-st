@@ -45,3 +45,12 @@ export interface TDetails {
   key: string;
   secret: string;
 }
+
+export interface IProduct {
+  id: number;
+  integrationId: number;
+  tProductId: number;
+  sProductId: number;
+  createDate: number;
+  updateDate?: number;
+}

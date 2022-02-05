@@ -1,7 +1,7 @@
 import config from 'config';
 import sqlite3 from 'sqlite3';
 import log from '../logger';
-import { Notification as ENotification, Integration, TDetails } from '../model/db.model';
+import { Notification as ENotification, IProduct, Integration, TDetails } from '../model/db.model';
 import { Notification } from '../model/tray.model';
 
 let db: sqlite3.Database;
@@ -163,4 +163,34 @@ export async function updateSConnectionDetails(integration: Integration) {
     $accessToken: integration.sellerSAccessToken,
     $accessExpirationDate: integration.sellerSAccessExpirationDate,
   })) as Object;
+}
+
+export async function createIProduct({
+  integrationId,
+  tProductId,
+  sProductId,
+}: {
+  integrationId: number;
+  tProductId: number;
+  sProductId: number;
+}) {
+  const sql = `INSERT INTO IPRODUCT(
+    id, integrationId, tProductId, sProductId, createDate) 
+    VALUES(
+    null, $integrationId, $tProductId, $sProductId, strftime('%s','now')
+  );`;
+  return (await run(sql, {
+    $integrationId: integrationId,
+    $tProductId: tProductId,
+    $sProductId: sProductId,
+  })) as IProduct;
+}
+
+export async function getIProductByT(integrationId: number, tProductId: number) {
+  const sql = `SELECT * 
+  FROM IPRODUCT 
+  WHERE integrationId = ${integrationId}
+  AND tProductId = ${tProductId};`;
+
+  return (await getRow(sql)) as IProduct;
 }

@@ -79,3 +79,9 @@ export enum Condition {
   NOVO = 'Novo',
   USADO = 'Usado',
 }
+
+// export interface ProductResponse SmReponse<Product>;
+
+export interface SmResponse<T> {
+  data: T;
+}

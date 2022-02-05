@@ -20,3 +20,9 @@ export function addToCurrentTime(seconds: number) {
   const now = Math.floor(Date.now() / 1000); // Unix time is Seconds since 01-01-70
   return now + seconds;
 }
+
+export function getCurrentUnixTime() {
+  // Date.now(); milliseconds elapsed since January 1, 1970
+  const now = Math.floor(Date.now() / 1000); // Unix time is Seconds since 01-01-70
+  return now;
+}

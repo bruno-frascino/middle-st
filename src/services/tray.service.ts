@@ -10,7 +10,7 @@ import {
   updateTConnectionDetails,
 } from '../db/db';
 import { Notification as ENotification, Integration } from '../model/db.model';
-import { convertStringToUnixTime } from '../utils/utils';
+import { convertStringToUnixTime, getCurrentUnixTime } from '../utils/utils';
 import { manageNotifications } from './middle.service';
 
 /**
@@ -274,7 +274,7 @@ export async function getProduct(notification: ENotification): Promise<Product> 
 }
 
 export async function provideAccessToken(notification: ENotification) {
-  return manageSystemConnection(await getIntegrationById(notification.integrationId));
+  return warmUpSystemConnection(await getIntegrationById(notification.integrationId));
 }
 
 // First access
@@ -357,7 +357,7 @@ async function getRefreshedToken(refreshToken: string, storeUrl: string): Promis
   return Promise.resolve(jsonResponse);
 }
 
-export async function manageSystemConnection(integration: Integration) {
+export async function warmUpSystemConnection(integration: Integration) {
   // Required connection details
   const { id, sellerTId, sellerTStoreCode, sellerTStoreUrl, sellerTRefreshToken } = integration;
   if (!sellerTId || !sellerTStoreCode || !sellerTStoreUrl) {
@@ -417,8 +417,7 @@ function hasExpiredTokens(integration: Integration) {
     return true;
   }
 
-  // Date.now(); milliseconds elapsed since January 1, 1970
-  const now = Math.floor(Date.now() / 1000); // Unix time is Seconds since 01-01-70
+  const now = getCurrentUnixTime();
   return (
     sellerTAccessExpirationDate &&
     sellerTAccessExpirationDate < now &&
@@ -435,8 +434,7 @@ function hasOnlyAccessTokenExpired(integration: Integration) {
     return false;
   }
 
-  // Date.now(); milliseconds elapsed since January 1, 1970
-  const now = Math.floor(Date.now() / 1000); // Unix time is Seconds since 01-01-70
+  const now = getCurrentUnixTime();
   return (
     sellerTAccessExpirationDate &&
     sellerTAccessExpirationDate < now &&
@@ -453,8 +451,7 @@ function hasValidTokens(integration: Integration) {
     return false;
   }
 
-  // Date.now(); milliseconds elapsed since January 1, 1970
-  const now = Math.floor(Date.now() / 1000); // Unix time is Seconds since 01-01-70
+  const now = getCurrentUnixTime();
   return (
     sellerTAccessExpirationDate &&
     sellerTAccessExpirationDate >= now &&

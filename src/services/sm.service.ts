@@ -1,20 +1,22 @@
 import config from 'config';
 import log from '../logger';
 import { Integration, Notification } from '../model/db.model';
-import { Product, SmToken } from '../model/sm.model';
-import { addToCurrentTime } from '../utils/utils';
+import { Product, SmResponse, SmToken } from '../model/sm.model';
+import { addToCurrentTime, getCurrentUnixTime } from '../utils/utils';
 import { getIntegrationById, updateSConnectionDetails } from '../db/db';
+import { postFetch } from '../utils/fetchApi';
 /**
  * All SM services
  */
 export async function monitorChanges() {
   // TODO monitorChanges
+  // BASED ON INTEGRATIONS
 }
 
-export async function manageSystemConnection(integration: Integration) {
+export async function warmUpSystemConnection(integration: Integration) {
   // TODO - manageSystemConnection
   // Required connection details
-  const { id, sellerSId, sellerSKey, sellerSSecret, sellerSAccessToken, sellerSAccessExpirationDate } = integration;
+  const { id, sellerSId, sellerSKey, sellerSSecret, sellerSAccessToken } = integration;
   if (!sellerSKey || !sellerSSecret || !sellerSId) {
     const errorMessage = `Integration record: ${id} missing required information`;
     log.error(errorMessage);
@@ -145,8 +147,7 @@ function hasValidToken(integration: Integration) {
     return false;
   }
 
-  // Date.now(); milliseconds elapsed since January 1, 1970
-  const now = Math.floor(Date.now() / 1000); // Unix time is Seconds since 01-01-70
+  const now = getCurrentUnixTime();
   return sellerSAccessExpirationDate && sellerSAccessExpirationDate >= now;
 }
 
@@ -214,10 +215,10 @@ async function getNewAccessToken({ key, secret }: { key: string; secret: string 
 }
 
 export async function provideAccessToken(notification: Notification) {
-  return manageSystemConnection(await getIntegrationById(notification.integrationId));
+  return warmUpSystemConnection(await getIntegrationById(notification.integrationId));
 }
 
-export async function createProduct(product: Product, notification: Notification) {
+export async function createProduct(product: Product, notification: Notification): Promise<Product> {
   const { sellerId, scopeId, appCode, storeUrl } = notification;
 
   if (!sellerId || !scopeId || !appCode || !storeUrl) {
@@ -231,43 +232,32 @@ export async function createProduct(product: Product, notification: Notification
   // TODO - API CALL
   let errorMessage = '';
   const baseUrl: string = config.get('sBaseUrl');
-  const requestInit: RequestInit = {
-    method: 'POST',
-    body: JSON.stringify(product),
-    headers: { 'Content-Type': 'application/json', Authentication: accessToken },
-  };
+  // const requestInit: RequestInit = {
+  //   method: 'POST',
+  //   body: JSON.stringify(product),
+  //   headers: { 'Content-Type': 'application/json', Authentication: accessToken },
+  // };
   let response;
   try {
-    response = await fetch(`${baseUrl}/api/v1/products`, requestInit);
+    // response = await fetch(`${baseUrl}/api/v1/products`, requestInit);
+    response = await postFetch(`${baseUrl}/api/v1/products`, product, accessToken);
   } catch (err) {
-    log.error(`Failed to POST SM path /products: ${err}`);
+    log.error(`Failed to Create S Product: ${err}`);
     throw err;
   }
-  let jsonResponse;
+  let jsonResponse: SmResponse<Product>;
   try {
     jsonResponse = await response.json();
   } catch (err) {
     log.error(`Create SM returned an invalid json response`);
     throw err;
   }
-  // "Unauthorized" or another reason
+  // Handle error responses
   if (response.status >= 400 || !jsonResponse) {
-    const errorReceived = jsonResponse || response.statusText;
+    const errorReceived = response.statusText;
     errorMessage = `Unable to create SM product: ${errorReceived}`;
     log.error(errorMessage);
     throw new Error(errorMessage);
   }
-  // {
-  //   "error": "Unauthorized"
-  // }
-  // if(response.status === 200)
-  // {
-  //   "access_token": "PSzRS8eE0mRIKN3jRKIxA8ZNpU",
-  //   "token_type": "bearer",
-  //   "expires_in": 3600
-  // }
-  return Promise.resolve({
-    accessToken: jsonResponse.access_token,
-    expires: jsonResponse.expires_in,
-  });
+  return Promise.resolve(jsonResponse.data);
 }
