@@ -1,6 +1,6 @@
 import log from '../logger';
 
-export async function postFetch(url: string, body: any, accessToken: any) {
+export async function postFetch(url: string, body: any, accessToken: string) {
   const requestInit: RequestInit = {
     method: 'POST',
     body: JSON.stringify(body),
@@ -20,10 +20,21 @@ export async function postFetch(url: string, body: any, accessToken: any) {
   // return Promise.resolve(jsonResponse);
 }
 
-// export function putFetch(){
+export async function getFetch(url: string, accessToken: string, params?: any) {
+  const requestInit: RequestInit = {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json', Authentication: accessToken },
+  };
 
-// }
+  return fetch(`${url}`, requestInit);
+  // const response = await fetch(`${url}`, requestInit);
+  // let jsonResponse;
+  // try {
+  //   jsonResponse = await response.json();
+  // } catch (err) {
+  //   log.error(`postFetch returned an invalid json response`);
+  //   throw err;
+  // }
 
-// export function getFetch(){
-
-// }
+  // return Promise.resolve(jsonResponse);
+}
