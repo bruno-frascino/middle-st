@@ -175,9 +175,9 @@ export async function createIProduct({
   sProductId: number;
 }) {
   const sql = `INSERT INTO IPRODUCT(
-    id, integrationId, tProductId, sProductId, createDate) 
+    id, integrationId, tProductId, sProductId, createDate, state) 
     VALUES(
-    null, $integrationId, $tProductId, $sProductId, strftime('%s','now')
+    null, $integrationId, $tProductId, $sProductId, strftime('%s','now'), 'C'
   );`;
   return (await run(sql, {
     $integrationId: integrationId,
@@ -193,4 +193,15 @@ export async function getIProductByT(integrationId: number, tProductId: number) 
   AND tProductId = ${tProductId};`;
 
   return (await getRow(sql)) as IProduct;
+}
+
+export async function updateIProduct({ iProductId, isDeleteState }: { iProductId: number; isDeleteState: boolean }) {
+  const sql = `UPDATE IPRODUCT 
+  SET 
+    updateDate = strftime('%s','now'),
+    state = ${isDeleteState ? 'D' : 'U'}
+  WHERE ID = $id`;
+  return (await run(sql, {
+    $id: iProductId,
+  })) as Object;
 }
