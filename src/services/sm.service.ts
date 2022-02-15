@@ -1,10 +1,10 @@
 import config from 'config';
 import log from '../logger';
 import { Integration, Notification } from '../model/db.model';
-import { Product, SmResponse, SmToken } from '../model/sm.model';
-import { addToCurrentTime, getCurrentUnixTime } from '../utils/utils';
+import { Product, SmToken } from '../model/sm.model';
+import { addToCurrentTime, getCurrentUnixTime } from '../shared/utils/utils';
 import { getIntegrationById, updateSConnectionDetails } from '../db/db';
-import { getFetch, postFetch } from '../utils/fetchApi';
+import { deleteProduct, getProduct, postProduct, putProduct } from './sm.api';
 /**
  * All SM services
  */
@@ -214,63 +214,59 @@ async function getNewAccessToken({ key, secret }: { key: string; secret: string 
   });
 }
 
-export async function provideAccessToken(notification: Notification) {
+export async function provideAccessToken(notification: Notification): Promise<string> {
   return warmUpSystemConnection(await getIntegrationById(notification.integrationId));
 }
 
+/**
+ *
+ * @param product
+ * @param notification
+ * @returns
+ */
 export async function createProduct(product: Product, notification: Notification): Promise<Product> {
   const accessToken = await provideAccessToken(notification);
 
-  const baseUrl: string = config.get('sBaseUrl');
-
-  let response;
-  try {
-    response = await postFetch(`${baseUrl}/api/v1/products`, product, accessToken);
-  } catch (err) {
-    log.error(`Failed to Create S Product: ${err}`);
-    throw err;
-  }
-  let jsonResponse: SmResponse<Product>;
-  try {
-    jsonResponse = await response.json();
-  } catch (err) {
-    log.error(`Create SM returned an invalid json response`);
-    throw err;
-  }
-  // Handle error responses
-  if (response.status >= 400 || !jsonResponse) {
-    const errorReceived = response.statusText;
-    const errorMessage = `Unable to create SM product: ${errorReceived}`;
-    log.error(errorMessage);
-    throw new Error(errorMessage);
-  }
-  return Promise.resolve(jsonResponse.data);
+  return postProduct({ product, accessToken });
 }
 
+/**
+ *
+ * @param productId
+ * @param notification
+ * @returns
+ */
 export async function getProductById(productId: number, notification: Notification): Promise<Product> {
   const accessToken = await provideAccessToken(notification);
 
-  const baseUrl: string = config.get('sBaseUrl');
-  let response;
-  try {
-    response = await getFetch(`${baseUrl}/api/v1/products/${productId}`, accessToken);
-  } catch (err) {
-    log.error(`Failed to Get S Product: ${err}`);
-    throw err;
-  }
-  let jsonResponse: SmResponse<Product>;
-  try {
-    jsonResponse = await response.json();
-  } catch (err) {
-    log.error(`Get S Product returned an invalid json response`);
-    throw err;
-  }
-  // Handle error responses
-  if (response.status >= 400 || !jsonResponse) {
-    const errorReceived = response.statusText;
-    const errorMessage = `Unable to get S product: ${errorReceived}`;
-    log.error(errorMessage);
-    throw new Error(errorMessage);
-  }
-  return Promise.resolve(jsonResponse.data);
+  return getProduct({ productId, accessToken });
+}
+
+/**
+ *
+ * @param product
+ * @param notification
+ * @returns
+ */
+export async function updateProduct(product: Product, notification: Notification): Promise<Product> {
+  const accessToken = await provideAccessToken(notification);
+
+  return putProduct({ product, accessToken });
+}
+
+/**
+ *
+ * @param param0
+ * @returns
+ */
+export async function removeProduct({
+  productId,
+  notification,
+}: {
+  productId: number;
+  notification: Notification;
+}): Promise<any> {
+  const accessToken = await provideAccessToken(notification);
+
+  return deleteProduct({ productId, accessToken });
 }
