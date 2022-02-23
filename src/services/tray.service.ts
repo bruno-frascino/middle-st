@@ -10,7 +10,7 @@ import {
   updateTConnectionDetails,
 } from '../db/db';
 import { Notification as ENotification, Integration } from '../model/db.model';
-import { convertStringToUnixTime, getCurrentUnixTime } from '../utils/utils';
+import { convertStringToUnixTime, getCurrentUnixTime } from '../shared/utils/utils';
 import { manageNotifications } from './middle.service';
 
 /**

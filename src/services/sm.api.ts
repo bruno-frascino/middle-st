@@ -1,6 +1,6 @@
 import config from 'config';
 import log from '../logger';
-import { Product } from '../model/sm.model';
+import { Product, SmToken } from '../model/sm.model';
 import { ErrorHandlerParams, fetchWrapper } from '../shared/api/fetchApi';
 import { ErrorCategory, HttpStatus, MiddleError } from '../shared/errors/MiddleError';
 
@@ -18,8 +18,7 @@ function getAllEmbedded() {
   return Object.values(Embedded).join(',');
 }
 
-// Product Endpoints
-// Create
+// Create Product
 export async function postProduct({
   product,
   accessToken,
@@ -33,7 +32,7 @@ export async function postProduct({
   return smFetch({ url, method: 'POST', body: product, fetchFn, accessToken });
 }
 
-// Retrieve
+// Retrieve Product
 export async function getProduct({
   productId,
   accessToken,
@@ -47,7 +46,7 @@ export async function getProduct({
   return smFetch({ url, method: 'GET', fetchFn, accessToken });
 }
 
-// Update
+// Update Product
 export async function putProduct({
   product,
   accessToken,
@@ -61,7 +60,7 @@ export async function putProduct({
   return smFetch({ url, method: 'PUT', body: product, fetchFn, accessToken });
 }
 
-// Delete
+// Delete Product
 export async function deleteProduct({
   productId,
   accessToken,
@@ -76,6 +75,41 @@ export async function deleteProduct({
   return smFetch({ url, method: 'DELETE', fetchFn, accessToken });
 }
 
+export async function postLogin({
+  key,
+  secret,
+  fetchFn = fetchWrapper,
+}: {
+  key: string;
+  secret: string;
+  fetchFn?: Function;
+}): Promise<SmToken> {
+  const url = `${baseUrl}/api/v1/seller/login`;
+  const login = await smFetch({ url, method: 'POST', body: { key, secret }, fetchFn });
+
+  return {
+    accessToken: login.access_token,
+    expiresIn: login.expires_in,
+    tokenType: login.token_type,
+  };
+}
+
+export async function postRefresh(previousAccessToken: string, fetchFn = fetchWrapper): Promise<SmToken> {
+  const url = `${baseUrl}/api/v1/seller/refresh`;
+  const refreshedToken = await smFetch({
+    url,
+    method: 'POST',
+    fetchFn,
+    accessToken: previousAccessToken,
+  });
+
+  return {
+    accessToken: refreshedToken.access_token,
+    expiresIn: refreshedToken.expires_in,
+    tokenType: refreshedToken.token_type,
+  };
+}
+
 async function smFetch({
   url,
   method,
@@ -88,7 +122,7 @@ async function smFetch({
   method: 'POST' | 'GET' | 'PUT' | 'DELETE';
   body?: any;
   fetchFn: Function;
-  accessToken: string;
+  accessToken?: string;
   errorHandlerFn?: Function;
 }) {
   const serviceName = 'SM Places';
@@ -99,7 +133,7 @@ async function smFetch({
       // origin: ORIGIN_HEADER_VALUE,
       // TODO - define a tracking id
       // 'X-TrackingID': ctx.trackingId,
-      Authentication: accessToken,
+      ...(!!accessToken && { Authorization: `Bearer ${accessToken}` }),
     },
   };
 
@@ -110,7 +144,7 @@ async function smFetch({
 }
 
 export default function smFetchErrorHandler({ url, response, responseJson }: ErrorHandlerParams) {
-  log.error('SM API error', { ucode: '5d5cb53', error: responseJson });
+  log.error('SM API error', { ucode: '5d5cb53', url, error: responseJson });
   // TODO Identify different responses
   // if (isSimpleError(responseJson)) {
   //   errorMessage = responseJson.errorMessage;

@@ -12,9 +12,11 @@ import {
   createProduct as createSProduct,
   getProductById as getSProductById,
   monitorChanges,
+  removeProduct,
+  updateProduct,
   warmUpSystemConnection as warmUpSSystemConnection,
 } from './sm.service';
-import { createIProduct, getIProductByT, getIntegrations } from '../db/db';
+import { createIProduct, getIProductByT, getIntegrations, updateIProduct } from '../db/db';
 
 /**
  *  This Service understands both systems
@@ -50,10 +52,10 @@ export function initializeMonitors() {
 
 export function manageNotifications(notifications: Notification[]) {
   notifications.forEach(async (notification) => {
+    let tProductId;
     switch (`${notification.scopeName}-${notification.act}`) {
       case `${Scope.PRODUCT}-${Act.INSERT}`: {
         console.log('product insert');
-        let tProductId;
         try {
           // GET TRAY PRODUCT (API)
           const tProduct = await getTProduct(notification);
@@ -68,37 +70,68 @@ export function manageNotifications(notifications: Notification[]) {
             tProduct.Product.id,
             apiSProduct.id,
           );
-          log.info(`A new product has been integrated: ${iProduct.id}`);
-          break;
+          // LOG
+          log.info(
+            `A new product has been integrated. [Integration:${iProduct.integrationId}, tProduct:${iProduct.tProductId}, sProduct:${iProduct.sProductId}}`,
+          );
         } catch (error) {
-          log.error(`Failed to integrate Product: ${tProductId} for Integration: ${notification.integrationId}`);
+          log.error(
+            `Failed to integrate a new Product: ${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`,
+          );
           break;
         }
+        break;
       }
       case `${Scope.PRODUCT}-${Act.UPDATE}`:
       case `${Scope.PRODUCT_PRICE}-${Act.UPDATE}`:
       case `${Scope.PRODUCT_STOCK}-${Act.UPDATE}`:
       case `${Scope.PRODUCT_PRICE}-${Act.INSERT}`:
       case `${Scope.PRODUCT_STOCK}-${Act.INSERT}`:
-      case `${Scope.PRODUCT_PRICE}-${Act.DELETE}`:
+      case `${Scope.PRODUCT_PRICE}-${Act.DELETE}`: // TODO: CHECK THIS USE CASE
       case `${Scope.PRODUCT_STOCK}-${Act.DELETE}`: {
         console.log('product update');
-        // GET TRAY PRODUCT (API)
-        const tProduct = await getTProduct(notification);
-        // GET SM ID FROM REGISTER
-        const iProduct = await getIProductByT(notification.integrationId, tProduct.Product.id);
-        // GET SM PRODUCT
-        const sProduct = await getSProductById(iProduct.sProductId, notification);
-        // POPULATE SM PRODUCT OBJECT
-        // UPDATE SM PRODUCT (API)
-        // UPDATE DB REGISTER
+        try {
+          // GET TRAY PRODUCT (API)
+          const tProduct = await getTProduct(notification);
+          // GET SM ID FROM REGISTER
+          const iProduct = await getIProductByT(notification.integrationId, tProduct.Product.id);
+          // GET SM PRODUCT
+          const sProduct = await getSProductById(iProduct.sProductId, notification);
+          // POPULATE SM PRODUCT OBJECT
+          const sProductToUpdate = convertToSProduct(tProduct);
+          // UPDATE SM PRODUCT (API)
+          sProductToUpdate.id = sProduct.id;
+          await updateProduct(sProductToUpdate, notification);
+          // UPDATE DB REGISTER
+          await updateIProduct({ iProductId: iProduct.id, isDeleteState: false });
+          // LOG
+          log.info(
+            `A product has been updated: [Integration:${iProduct.integrationId}, tProduct:${iProduct.tProductId}, sProduct:${iProduct.sProductId}}`,
+          );
+        } catch (error) {
+          log.error(
+            `Failed to update Product: ${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`,
+          );
+          break;
+        }
         break;
       }
       case `${Scope.PRODUCT}-${Act.DELETE}`:
         console.log('product delete');
-        // GET SM ID FROM REGISTER
-        // DELETE SM PRODUCT
-        // UPDATE DB REGISTER
+        try {
+          // GET SM ID FROM REGISTER
+          const iProduct = await getIProductByT(notification.integrationId, notification.scopeId);
+          // DELETE SM PRODUCT
+          await removeProduct({ productId: iProduct.sProductId, notification });
+          // UPDATE DB REGISTER
+
+          // TODO
+        } catch (error) {
+          log.error(
+            `Failed to update Product: ${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`,
+          );
+          break;
+        }
         break;
       case `${Scope.VARIANT}-${Act.INSERT}`:
         console.log('variant insert');
