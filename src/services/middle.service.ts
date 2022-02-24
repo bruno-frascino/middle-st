@@ -3,7 +3,7 @@ import { IProduct, Notification } from '../model/db.model';
 import { Act, Scope, Product as TProduct } from '../model/tray.model';
 import { Condition, Product as SProduct } from '../model/sm.model';
 import {
-  getProduct as getTProduct,
+  getTrayProduct,
   monitorNotifications,
   warmUpSystemConnection as warmUpTSystemConnection,
 } from './tray.service';
@@ -58,7 +58,7 @@ export function manageNotifications(notifications: Notification[]) {
         console.log('product insert');
         try {
           // GET TRAY PRODUCT (API)
-          const tProduct = await getTProduct(notification);
+          const tProduct = await getTrayProduct(notification);
           tProductId = tProduct.Product.id;
           // POPULATE SM PRODUCT OBJECT
           const sProduct = convertToSProduct(tProduct);
@@ -92,7 +92,7 @@ export function manageNotifications(notifications: Notification[]) {
         console.log('product update');
         try {
           // GET TRAY PRODUCT (API)
-          const tProduct = await getTProduct(notification);
+          const tProduct = await getTrayProduct(notification);
           // GET SM ID FROM REGISTER
           const iProduct = await getIProductByT(notification.integrationId, tProduct.Product.id);
           // GET SM PRODUCT

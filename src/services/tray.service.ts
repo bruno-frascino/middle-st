@@ -12,6 +12,8 @@ import {
 import { Notification as ENotification, Integration } from '../model/db.model';
 import { convertStringToUnixTime, getCurrentUnixTime } from '../shared/utils/utils';
 import { manageNotifications } from './middle.service';
+import { getAuth, getProduct, postAuth } from './tray.api';
+import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 
 /**
  *
@@ -26,13 +28,13 @@ export async function handleNotification(notification: Notification) {
   // Get seller's integration details
   const integration = await getIntegrationByT(seller_id, app_code);
   if (!integration) {
-    throw new Error(`T Seller not found for id: ${seller_id} and app: ${app_code}`);
+    throw new MiddleError(`T Seller not found for id: ${seller_id} and app: ${app_code}`, ErrorCategory.BUS);
   }
 
   // Store Notification
   const id = await insertNotification(notification, integration.id);
   if (!id) {
-    throw new Error('Failed to save notification');
+    throw new MiddleError('Failed to save notification', ErrorCategory.TECH);
   }
   log.info(`Notification saved: ${JSON.stringify(id)}`);
   return id;
@@ -228,147 +230,49 @@ export function getIrrelevantUpdates(notifications: ENotification[]) {
   });
 }
 
-export async function getProduct(notification: ENotification): Promise<Product> {
+export async function getTrayProduct(notification: ENotification): Promise<Product> {
   const { sellerId, scopeId, appCode, storeUrl } = notification;
 
   if (!sellerId || !scopeId || !appCode || !storeUrl) {
-    const errorMessage = `Invalid getProduct params`;
+    const errorMessage = `Invalid getTrayProduct params`;
     log.error(errorMessage);
-    throw new Error(errorMessage);
+    throw new MiddleError(errorMessage, ErrorCategory.BUS);
   }
 
-  const access = await provideAccessToken(notification);
+  const accessToken = await provideAccessToken(notification);
 
-  let errorMessage = '';
-
-  const requestInit: RequestInit = {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-  };
-
-  let response;
-  try {
-    response = await fetch(`https://${storeUrl}/products/${scopeId}?access_token=${access}`, requestInit);
-  } catch (err) {
-    log.error(`Failed to fetch /products/${scopeId} Error: ${err}`);
-    throw err;
-  }
-
-  let jsonResponse;
-  try {
-    jsonResponse = await response.json();
-  } catch (err) {
-    log.error(`/products/${scopeId} returned an invalid json response`);
-    throw err;
-  }
-
-  // "Unauthorized" or another reason
-  if (response.status >= 400 || !jsonResponse) {
-    const errorReceived = jsonResponse || response.statusText;
-    errorMessage = `Unable to retrieve product: ${errorReceived}`;
-    log.error(errorMessage);
-    throw new Error(errorMessage);
-  }
-
-  return Promise.resolve(jsonResponse);
+  return getProduct({ domain: storeUrl, productId: scopeId, accessToken });
 }
 
-export async function provideAccessToken(notification: ENotification) {
+export async function provideAccessToken(notification: ENotification): Promise<string> {
   return warmUpSystemConnection(await getIntegrationById(notification.integrationId));
 }
 
 // First access
 async function getNewAccessToken(code: string, storeUrl: string): Promise<TrayToken> {
-  let errorMessage = '';
-
   const details = await getTDetails(); // unique for this system
-  const body = {
-    consumer_key: details.key,
-    consumer_secret: details.secret,
-    code,
-  };
+  const { key, secret } = details;
 
-  const requestInit: RequestInit = {
-    method: 'POST',
-    body: JSON.stringify(body),
-    headers: { 'Content-Type': 'application/json' },
-  };
-
-  let response;
-  try {
-    response = await fetch(`https://${storeUrl}/auth`, requestInit);
-  } catch (err) {
-    log.error(`Failed to fetch /auth: ${err}`);
-    throw err;
-  }
-
-  let jsonResponse;
-  try {
-    jsonResponse = await response.json();
-  } catch (err) {
-    log.error(`/auth returned an invalid json response`);
-    throw err;
-  }
-
-  // "Unauthorized" or another reason
-  if (response.status >= 400 || !jsonResponse) {
-    const errorReceived = jsonResponse || response.statusText;
-    errorMessage = `Unable to retrieve t token: ${errorReceived}`;
-    log.error(errorMessage);
-    throw new Error(errorMessage);
-  }
-
-  return Promise.resolve(jsonResponse);
+  return postAuth({ domain: storeUrl, consumer_key: key, consumer_secret: secret, code });
 }
 
 // Refresh token
 async function getRefreshedToken(refreshToken: string, storeUrl: string): Promise<TrayToken> {
-  let errorMessage = '';
-
-  const requestInit: RequestInit = {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-  };
-
-  let response;
-  try {
-    response = await fetch(`https://${storeUrl}/auth?refresh_token=${refreshToken}`, requestInit);
-  } catch (err) {
-    log.error(`Failed to fetch /auth?refresh_token: ${err}`);
-    throw err;
-  }
-
-  let jsonResponse;
-  try {
-    jsonResponse = await response.json();
-  } catch (err) {
-    log.error(`/auth?refresh_token returned an invalid json response`);
-    throw err;
-  }
-
-  // "Unauthorized" or another reason
-  if (response.status >= 400 || !jsonResponse) {
-    const errorReceived = jsonResponse || response.statusText;
-    errorMessage = `Unable to refresh t token: ${errorReceived}`;
-    log.error(errorMessage);
-    throw new Error(errorMessage);
-  }
-
-  return Promise.resolve(jsonResponse);
+  return getAuth({ domain: storeUrl, refreshToken });
 }
 
-export async function warmUpSystemConnection(integration: Integration) {
+export async function warmUpSystemConnection(integration: Integration): Promise<string> {
   // Required connection details
-  const { id, sellerTId, sellerTStoreCode, sellerTStoreUrl, sellerTRefreshToken } = integration;
+  const { id, sellerTId, sellerTStoreCode, sellerTStoreUrl, sellerTRefreshToken, sellerTAccessToken } = integration;
   if (!sellerTId || !sellerTStoreCode || !sellerTStoreUrl) {
     const errorMessage = `Integration record: ${id} missing required information`;
     log.error(errorMessage);
-    throw new Error(errorMessage);
+    throw new MiddleError(errorMessage, ErrorCategory.BUS);
   }
 
   // valid connection - no action required
-  if (hasValidTokens(integration)) {
-    return integration.sellerTAccessToken;
+  if (integration && sellerTAccessToken && hasValidTokens(integration)) {
+    return sellerTAccessToken;
   }
 
   let integrationCopy;
@@ -380,7 +284,7 @@ export async function warmUpSystemConnection(integration: Integration) {
     } catch (err) {
       const errorMessage = `New access token could not be retrieved for integration: ${id}`;
       log.error(errorMessage);
-      throw new Error(errorMessage);
+      throw new MiddleError(errorMessage, ErrorCategory.BUS);
     }
   }
 
@@ -394,17 +298,17 @@ export async function warmUpSystemConnection(integration: Integration) {
     } catch (err) {
       const errorMessage = `Refreshed token could not be retrieved for integration: ${id}`;
       log.error(errorMessage);
-      throw new Error(errorMessage);
+      throw new MiddleError(errorMessage, ErrorCategory.BUS);
     }
   }
 
-  if (integrationCopy) {
+  if (integrationCopy && integrationCopy.sellerTAccessToken) {
     // Update record
     await updateTConnectionDetails(integrationCopy);
     return integrationCopy.sellerTAccessToken;
   }
 
-  throw new Error(`Unable to manage connection for integration: ${id}`);
+  throw new MiddleError(`Unable to manage connection for integration: ${id}`, ErrorCategory.TECH);
 }
 
 // no connection details or
