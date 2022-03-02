@@ -186,15 +186,17 @@ export async function createIProduct({
   })) as IProduct;
 }
 
-export async function getIProductByT(integrationId: number, tProductId: number) {
+export async function getIProductByT({ integrationId, tProductId }: { integrationId: number; tProductId: number }) {
   const sql = `SELECT * 
   FROM IPRODUCT 
   WHERE integrationId = ${integrationId}
-  AND tProductId = ${tProductId};`;
+  AND tProductId = ${tProductId}
+  AND state <> 'D';`;
 
   return (await getRow(sql)) as IProduct;
 }
 
+// states: [C, U, D]
 export async function updateIProduct({ iProductId, isDeleteState }: { iProductId: number; isDeleteState: boolean }) {
   const sql = `UPDATE IPRODUCT 
   SET 
@@ -204,4 +206,25 @@ export async function updateIProduct({ iProductId, isDeleteState }: { iProductId
   return (await run(sql, {
     $id: iProductId,
   })) as Object;
+}
+
+export async function createIProductSkus({
+  iProductId,
+  sCodeSku,
+  tVariantId,
+}: {
+  iProductId: number;
+  sCodeSku: string;
+  tVariantId: number;
+}) {
+  const sql = `INSERT INTO IPRODUCT_SKUS(
+    id, iProductId, sCodeSku, tVariantId, createDate, state) 
+    VALUES(
+    null, $iProductId, $sCodeSku, $tVariantId, strftime('%s','now'), 'C'
+  );`;
+  return (await run(sql, {
+    $iProductId: iProductId,
+    $sCodeSku: sCodeSku,
+    $tVariantId: tVariantId,
+  })) as IProduct;
 }
