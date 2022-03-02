@@ -24,19 +24,19 @@ export interface GoogleShopping {
 }
 
 export interface Dimension {
-  weight: number;
-  height: number;
-  width: number;
-  length: number;
+  weight: number; // same
+  height: number; // same
+  width: number; // same
+  length: number; // same
 }
 
 export interface PriceDetail {
-  regular: number;
-  sale: number;
+  regular: number; // price
+  sale: number; // cost_price
 }
 export interface Price {
   retail: PriceDetail;
-  wholesale: PriceDetail;
+  wholesale?: PriceDetail;
 }
 
 export interface Variant {
@@ -45,15 +45,15 @@ export interface Variant {
   value: string; // "M"
 }
 export interface Sku {
-  stock: number;
-  barcode: string;
-  code_sku: string;
-  status: string; // "INACTIVE" | ACTIVE
-  unity_type: string; // ??
-  unity_quantity: number;
-  extra_days_to_delivery: number;
-  dimensions: Dimension;
-  prices: Price;
+  code_sku: string; //                id ?
+  barcode: string; //                 ean
+  prices: Price; //                   price && cost_price
+  stock: number; //                   stock
+  status: string; //                  "INACTIVE" | ACTIVE  // available
+  unity_type: string; //              SM
+  unity_quantity: number; //          SM
+  extra_days_to_delivery: number; //  SM
+  dimensions: Dimension; //           weight, length, width, height
   variants: Variant[];
 }
 export interface Product {

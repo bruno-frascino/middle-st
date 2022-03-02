@@ -1,4 +1,4 @@
-import { Act, Notification, Product, Scope, TrayToken } from '../model/tray.model';
+import { Act, Notification, Product, Scope, TrayToken, Variant } from '../model/tray.model';
 import log from '../logger';
 import {
   deleteNotifications,
@@ -12,7 +12,7 @@ import {
 import { Notification as ENotification, Integration } from '../model/db.model';
 import { convertStringToUnixTime, getCurrentUnixTime } from '../shared/utils/utils';
 import { manageNotifications } from './middle.service';
-import { getAuth, getProduct, postAuth } from './tray.api';
+import { getAuth, getProduct, getVariant, postAuth } from './tray.api';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 
 /**
@@ -231,17 +231,30 @@ export function getIrrelevantUpdates(notifications: ENotification[]) {
 }
 
 export async function getTrayProduct(notification: ENotification): Promise<Product> {
-  const { sellerId, scopeId, appCode, storeUrl } = notification;
+  validateRequestParams(notification, 'getTrayProduct');
 
+  const accessToken = await provideAccessToken(notification);
+  const { scopeId, storeUrl } = notification;
+
+  return getProduct({ domain: storeUrl, productId: scopeId, accessToken });
+}
+
+export async function getTrayVariant(notification: ENotification): Promise<Variant> {
+  validateRequestParams(notification, 'getTrayVariant');
+
+  const accessToken = await provideAccessToken(notification);
+  const { storeUrl, scopeId } = notification;
+
+  return getVariant({ domain: storeUrl, variantId: scopeId, accessToken });
+}
+
+function validateRequestParams(notification: ENotification, requestName: string) {
+  const { sellerId, scopeId, appCode, storeUrl } = notification;
   if (!sellerId || !scopeId || !appCode || !storeUrl) {
-    const errorMessage = `Invalid getTrayProduct params`;
+    const errorMessage = `Invalid ${requestName} params`;
     log.error(errorMessage);
     throw new MiddleError(errorMessage, ErrorCategory.BUS);
   }
-
-  const accessToken = await provideAccessToken(notification);
-
-  return getProduct({ domain: storeUrl, productId: scopeId, accessToken });
 }
 
 export async function provideAccessToken(notification: ENotification): Promise<string> {

@@ -1,9 +1,9 @@
 import log from '../logger';
 import { Integration, Notification } from '../model/db.model';
-import { Product, SmToken } from '../model/sm.model';
+import { Product, Sku, SmToken } from '../model/sm.model';
 import { addToCurrentTime, getCurrentUnixTime } from '../shared/utils/utils';
 import { getIntegrationById, updateSConnectionDetails } from '../db/db';
-import { deleteProduct, getProduct, postLogin, postProduct, postRefresh, putProduct } from './sm.api';
+import { deleteProduct, getProduct, postLogin, postProduct, postRefresh, postSku, putProduct } from './sm.api';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 /**
  * All SM services
@@ -109,7 +109,7 @@ export async function createProduct(product: Product, notification: Notification
  * @param notification
  * @returns
  */
-export async function getProductById(productId: number, notification: Notification): Promise<Product> {
+export async function getSmProductById(productId: number, notification: Notification): Promise<Product> {
   const accessToken = await provideAccessToken(notification);
 
   return getProduct({ productId, accessToken });
@@ -142,4 +142,17 @@ export async function removeProduct({
   const accessToken = await provideAccessToken(notification);
 
   return deleteProduct({ productId, accessToken });
+}
+
+export async function createSmSku({
+  productId,
+  sku,
+  notification,
+}: {
+  productId: number;
+  sku: Sku;
+  notification: Notification;
+}) {
+  const accessToken = await provideAccessToken(notification);
+  return postSku({ productId, sku, accessToken });
 }

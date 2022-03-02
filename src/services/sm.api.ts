@@ -1,6 +1,6 @@
 import config from 'config';
 import log from '../logger';
-import { Product, SmToken } from '../model/sm.model';
+import { Product, Sku, SmToken } from '../model/sm.model';
 import { ErrorHandlerParams, fetchWrapper } from '../shared/api/fetchApi';
 import { ErrorCategory, HttpStatus, MiddleError } from '../shared/errors/MiddleError';
 
@@ -108,6 +108,21 @@ export async function postRefresh(previousAccessToken: string, fetchFn = fetchWr
     expiresIn: refreshedToken.expires_in,
     tokenType: refreshedToken.token_type,
   };
+}
+
+export async function postSku({
+  productId,
+  sku,
+  accessToken,
+  fetchFn = fetchWrapper,
+}: {
+  productId: number;
+  sku: Sku;
+  accessToken: string;
+  fetchFn?: Function;
+}): Promise<Product> {
+  const url = `${baseUrl}/api/v1/products/${productId}/skus`;
+  return smFetch({ url, method: 'POST', body: sku, fetchFn, accessToken });
 }
 
 async function smFetch({

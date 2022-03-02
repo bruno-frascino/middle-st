@@ -1,22 +1,23 @@
 import config from 'config';
 import { IProduct, Notification } from '../model/db.model';
-import { Act, Scope, Product as TProduct } from '../model/tray.model';
-import { Condition, Product as SProduct } from '../model/sm.model';
+import { Act, Scope, Product as TProduct, Variant } from '../model/tray.model';
+import { Condition, Product as SProduct, Sku } from '../model/sm.model';
 import {
   getTrayProduct,
+  getTrayVariant,
   monitorNotifications,
   warmUpSystemConnection as warmUpTSystemConnection,
 } from './tray.service';
 import log from '../logger';
 import {
   createProduct as createSProduct,
-  getProductById as getSProductById,
+  createSmSku,
   monitorChanges,
   removeProduct,
   updateProduct,
   warmUpSystemConnection as warmUpSSystemConnection,
 } from './sm.service';
-import { createIProduct, getIProductByT, getIntegrations, updateIProduct } from '../db/db';
+import { createIProduct, createIProductSkus, getIProductByT, getIntegrations, updateIProduct } from '../db/db';
 
 /**
  *  This Service understands both systems
@@ -94,13 +95,17 @@ export function manageNotifications(notifications: Notification[]) {
           // GET TRAY PRODUCT (API)
           const tProduct = await getTrayProduct(notification);
           // GET SM ID FROM REGISTER
-          const iProduct = await getIProductByT(notification.integrationId, tProduct.Product.id);
+          const iProduct = await getIProductByT({
+            integrationId: notification.integrationId,
+            tProductId: tProduct.Product.id,
+          });
           // GET SM PRODUCT
-          const sProduct = await getSProductById(iProduct.sProductId, notification);
+          // const sProduct = await getSProductById(iProduct.sProductId, notification);
           // POPULATE SM PRODUCT OBJECT
           const sProductToUpdate = convertToSProduct(tProduct);
           // UPDATE SM PRODUCT (API)
-          sProductToUpdate.id = sProduct.id;
+          // sProductToUpdate.id = sProduct.id;
+          sProductToUpdate.id = iProduct.sProductId;
           await updateProduct(sProductToUpdate, notification);
           // UPDATE DB REGISTER
           await updateIProduct({ iProductId: iProduct.id, isDeleteState: false });
@@ -116,26 +121,55 @@ export function manageNotifications(notifications: Notification[]) {
         }
         break;
       }
-      case `${Scope.PRODUCT}-${Act.DELETE}`:
+      case `${Scope.PRODUCT}-${Act.DELETE}`: {
         console.log('product delete');
         try {
           // GET SM ID FROM REGISTER
-          const iProduct = await getIProductByT(notification.integrationId, notification.scopeId);
+          const iProduct = await getIProductByT({
+            integrationId: notification.integrationId,
+            tProductId: notification.scopeId,
+          });
           // DELETE SM PRODUCT
           await removeProduct({ productId: iProduct.sProductId, notification });
           // UPDATE DB REGISTER
 
-          // TODO
+          await updateIProduct({ iProductId: iProduct.id, isDeleteState: true });
         } catch (error) {
+          // TODO - Register any integration that failed in a table, not just log, with enough info to trace back to the initial notification
+          // consider a scenario where failed notifications can be retried automatically by the system
           log.error(
-            `Failed to update Product: ${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`,
+            `Failed to delete Product: ${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`,
           );
           break;
         }
         break;
-      case `${Scope.VARIANT}-${Act.INSERT}`:
+      }
+      // Variant == Sku in SM
+      case `${Scope.VARIANT}-${Act.INSERT}`: {
         console.log('variant insert');
+        // GET TRAY VARIANT (API)
+        const variant = await getTrayVariant(notification);
+        tProductId = variant.Variant.product_id;
+
+        // GET SM ID FROM REGISTER
+        const iProduct = await getIProductByT({ integrationId: notification.integrationId, tProductId });
+
+        // GET SM ID FROM IPRODUCT BASED ON TPRODUCT_ID
+        // CONVERT VARIANT TO SKU OBJECT
+        const skuToCreate = convertToSSku(variant);
+        // CREATE NEW SKU - it is related to Product
+        await createSmSku({ productId: iProduct.sProductId, sku: skuToCreate, notification });
+
+        // UPDATE IPRODUCT (U state)
+        await updateIProduct({ iProductId: iProduct.id, isDeleteState: false });
+        // CREATE MAPPING IPRODUCT X SM PRODUCT ID X SKU X VARIANT
+        createIProductSkus({ iProductId: iProduct.id, sCodeSku: skuToCreate.code_sku, tVariantId: variant.Variant.id });
+        // LOG
+        log.info(
+          `A new Sku has been integrated. [Integration:${iProduct.integrationId}, tProduct:${iProduct.tProductId}, sProduct:${iProduct.sProductId}, tVariantId: ${variant.Variant.id}, sSkuCode: ${skuToCreate.code_sku}]`,
+        );
         break;
+      }
       case `${Scope.VARIANT}-${Act.UPDATE}`:
       case `${Scope.VARIANT_PRICE}-${Act.UPDATE}`:
       case `${Scope.VARIANT_STOCK}-${Act.UPDATE}`:
@@ -261,6 +295,60 @@ export function convertToSBrand(tBrand_id: number) {
 export function convertToSCategory(tCategory_id: number) {
   // TODO
   return [tCategory_id + 1];
+}
+
+function convertToSSku(variant: Variant) {
+  // eslint-disable-next-line @typescript-eslint/no-shadow
+  const { Variant } = variant;
+  const sku: Sku = {
+    code_sku: Variant.id.toString(),
+    barcode: Variant.ean,
+    prices: {
+      retail: {
+        regular: Variant.cost_price,
+        sale: Variant.price,
+      },
+    },
+    stock: Variant.stock,
+    status: Variant.available === 1 ? 'ACTIVE' : 'INACTIVE',
+    // TODO: Check default values - dummy for now as they don't exist in Tray
+    unity_type: '',
+    unity_quantity: 0,
+    extra_days_to_delivery: 0,
+    dimensions: {
+      weight: Variant.weight,
+      height: Variant.height,
+      width: Variant.width,
+      length: Variant.length,
+    },
+    // TODO - how to translate TRAY variant to this variant
+    variants: [],
+    // variants: Variant[];
+    // {
+    //   id: number;
+    //   name: string; // "Tamanho",
+    //   value: string; // "M"
+    // }
+
+    // TRAY fields without a clear correspondent in SM
+    // order: string; //         Tray
+    // product_id: number; //    Tray
+    // minimum_stock: number; // Tray
+    // reference: string; //     Tray
+    // cubic_weight: number; //  Tray
+    // // '2019-01-01';
+    // start_promotion: Date; //                    Tray
+    // // '2019-01-10';
+    // end_promotion: Date; //                      Tray
+    // promotional_price: number; //                Tray
+    // payment_option: string; //                   Tray
+    // payment_option_details: PaymentDetails[]; // Tray
+    // illustrative_image: string; //               Tray
+    // Sku: TypeValueImage[]; // TODO Confirm these
+    // VariantImage: Image[]; // Gallery?
+  };
+
+  return sku;
 }
 
 // T to S

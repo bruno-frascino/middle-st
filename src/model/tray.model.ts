@@ -119,7 +119,7 @@ export interface Product {
     rating: number;
     count_rating: number; // Valor da classificação do produto
     quantity_sold: number;
-    ProductImage: ProductImage[];
+    ProductImage: Image[];
     image: number; // produto com imagem
     url: UrlType;
     created: string;
@@ -142,7 +142,7 @@ export interface Product {
     warranty_days: number;
     availability_days: number;
     metatag: TypeContent[];
-    Variant: Variant[];
+    Variant: number[]; // TODO Confirm this
     is_kit: number; // 0 | 1
     activation_date: string;
     deactivation_date: string;
@@ -169,7 +169,7 @@ export interface Product {
   };
 }
 
-interface ProductImage {
+interface Image {
   http: string;
   https: string;
   thumbs: Thumbs;
@@ -201,10 +201,44 @@ interface TypeContent {
   content: string;
 }
 
-interface Variant {
-  id: number;
+export interface Variant {
+  Variant: {
+    id: number; //            code_sky
+    ean: string; //           barcode
+    order: string; //         Tray
+    product_id: number; //    Tray
+    price: number; //         PriceDetail.sale
+    cost_price: number; //    PriceDetail.regular
+    stock: number; //         stock
+    minimum_stock: number; // Tray
+    available: number; //     status
+    reference: string; //     Tray
+    weight: number; //        Dimension.weight
+    cubic_weight: number; //  Tray
+    length: number; //        Dimension.length
+    width: number; //         Dimension.width
+    height: number; //        Dimension.height
+    // '2019-01-01';
+    start_promotion: Date; //                    Tray
+    // '2019-01-10';
+    end_promotion: Date; //                      Tray
+    promotional_price: number; //                Tray
+    payment_option: string; //                   Tray
+    payment_option_details: PaymentDetails[]; // Tray
+    illustrative_image: string; //               Tray
+    Sku: TypeValueImage[]; // TODO Confirm these
+    // quantity_sold: '10';
+    // color_id_1: '23';
+    // color_id_2: '0';
+    VariantImage: Image[]; // Gallery?
+  };
 }
-
+interface TypeValueImage {
+  type: string;
+  value: string;
+  image: string;
+  image_secure: string;
+}
 interface PaymentDetails {
   display_name: string;
   type: string;

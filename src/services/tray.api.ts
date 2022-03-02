@@ -1,5 +1,5 @@
 import log from '../logger';
-import { Product, TrayToken } from '../model/tray.model';
+import { Product, TrayToken, Variant } from '../model/tray.model';
 import { ErrorHandlerParams, fetchWrapper } from '../shared/api/fetchApi';
 import { ErrorCategory, HttpStatus, MiddleError } from '../shared/errors/MiddleError';
 
@@ -80,6 +80,22 @@ export async function getAuth({
     method: 'GET',
     fetchFn,
   });
+}
+
+// Variant
+export async function getVariant({
+  domain,
+  variantId,
+  accessToken,
+  fetchFn = fetchWrapper,
+}: {
+  domain: string;
+  variantId: number;
+  accessToken: string;
+  fetchFn?: Function;
+}): Promise<Variant> {
+  const url = `https://${domain}/products/variants/${variantId}?access_token=${accessToken}`;
+  return trayFetch({ url, method: 'GET', fetchFn });
 }
 
 async function trayFetch({
