@@ -12,7 +12,7 @@ import {
 import { Notification as ENotification, Integration } from '../model/db.model';
 import { convertStringToUnixTime, getCurrentUnixTime } from '../shared/utils/utils';
 import { manageNotifications } from './middle.service';
-import { getAuth, getProduct, getVariant, postAuth } from './tray.api';
+import { getAuth, getProduct, getVariant, postAuth } from '../resources/tray.api';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 
 /**

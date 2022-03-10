@@ -13,7 +13,7 @@ import {
   postRefresh,
   postSku,
   putProduct,
-} from './sm.api';
+} from '../resources/sm.api';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 /**
  * All SM services
