@@ -12,12 +12,23 @@ import log from '../logger';
 import {
   createProduct as createSProduct,
   createSmSku,
+  deleteSmSku,
   monitorChanges,
   removeProduct,
   updateProduct,
+  updateSmSku,
   warmUpSystemConnection as warmUpSSystemConnection,
 } from './sm.service';
-import { createIProduct, createIProductSkus, getIProductByT, getIntegrations, updateIProduct } from '../db/db';
+import {
+  createIProduct,
+  createIProductSku,
+  getIProductByT,
+  getIProductSkuByT,
+  getIProductSkuByVariant,
+  getIntegrations,
+  updateIProduct,
+  updateIProductSku,
+} from '../db/db';
 
 /**
  *  This Service understands both systems
@@ -79,7 +90,6 @@ export function manageNotifications(notifications: Notification[]) {
           log.error(
             `Failed to integrate a new Product: ${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`,
           );
-          break;
         }
         break;
       }
@@ -94,10 +104,11 @@ export function manageNotifications(notifications: Notification[]) {
         try {
           // GET TRAY PRODUCT (API)
           const tProduct = await getTrayProduct(notification);
+          tProductId = tProduct.Product.id;
           // GET SM ID FROM REGISTER
           const iProduct = await getIProductByT({
             integrationId: notification.integrationId,
-            tProductId: tProduct.Product.id,
+            tProductId,
           });
           // GET SM PRODUCT
           // const sProduct = await getSProductById(iProduct.sProductId, notification);
@@ -117,7 +128,6 @@ export function manageNotifications(notifications: Notification[]) {
           log.error(
             `Failed to update Product: ${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`,
           );
-          break;
         }
         break;
       }
@@ -125,9 +135,10 @@ export function manageNotifications(notifications: Notification[]) {
         console.log('product delete');
         try {
           // GET SM ID FROM REGISTER
+          tProductId = notification.scopeId;
           const iProduct = await getIProductByT({
             integrationId: notification.integrationId,
-            tProductId: notification.scopeId,
+            tProductId,
           });
           // DELETE SM PRODUCT
           await removeProduct({ productId: iProduct.sProductId, notification });
@@ -140,51 +151,107 @@ export function manageNotifications(notifications: Notification[]) {
           log.error(
             `Failed to delete Product: ${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`,
           );
-          break;
         }
         break;
       }
       // Variant == Sku in SM
       case `${Scope.VARIANT}-${Act.INSERT}`: {
         console.log('variant insert');
-        // GET TRAY VARIANT (API)
-        const variant = await getTrayVariant(notification);
-        tProductId = variant.Variant.product_id;
+        try {
+          // GET TRAY VARIANT (API)
+          const variant = await getTrayVariant(notification);
+          tProductId = variant.Variant.product_id;
 
-        // GET SM ID FROM REGISTER
-        const iProduct = await getIProductByT({ integrationId: notification.integrationId, tProductId });
+          // GET SM ID FROM REGISTER
+          const iProduct = await getIProductByT({ integrationId: notification.integrationId, tProductId });
 
-        // GET SM ID FROM IPRODUCT BASED ON TPRODUCT_ID
-        // CONVERT VARIANT TO SKU OBJECT
-        const skuToCreate = convertToSSku(variant);
-        // CREATE NEW SKU - it is related to Product
-        await createSmSku({ productId: iProduct.sProductId, sku: skuToCreate, notification });
+          // GET SM ID FROM IPRODUCT BASED ON TPRODUCT_ID
+          // CONVERT VARIANT TO SKU OBJECT
+          const skuToCreate = convertToSSku(variant);
+          // CREATE NEW SKU - it is related to Product
+          const sSku = await createSmSku({ productId: iProduct.sProductId, sku: skuToCreate, notification });
 
-        // UPDATE IPRODUCT (U state)
-        await updateIProduct({ iProductId: iProduct.id, isDeleteState: false });
-        // CREATE MAPPING IPRODUCT X SM PRODUCT ID X SKU X VARIANT
-        createIProductSkus({ iProductId: iProduct.id, sCodeSku: skuToCreate.code_sku, tVariantId: variant.Variant.id });
-        // LOG
-        log.info(
-          `A new Sku has been integrated. [Integration:${iProduct.integrationId}, tProduct:${iProduct.tProductId}, sProduct:${iProduct.sProductId}, tVariantId: ${variant.Variant.id}, sSkuCode: ${skuToCreate.code_sku}]`,
-        );
+          // UPDATE IPRODUCT (U state)
+          await updateIProduct({ iProductId: iProduct.id, isDeleteState: false });
+          // CREATE MAPPING IPRODUCT X SM PRODUCT ID X SKU X VARIANT
+          createIProductSku({
+            iProductId: iProduct.id,
+            sSkuId: sSku.id ?? 0,
+            tVariantId: variant.Variant.id,
+          });
+          // LOG
+          log.info(
+            `A new Sku has been integrated. [Integration:${iProduct.integrationId}, tProduct:${iProduct.tProductId}, sProduct:${iProduct.sProductId}, tVariantId: ${variant.Variant.id}, sSkuCode: ${skuToCreate.code_sku}]`,
+          );
+        } catch (error) {
+          log.error(
+            `Failed to insert a new Variant: ${notification.scopeId} for Product:${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`,
+          );
+        }
         break;
       }
       case `${Scope.VARIANT}-${Act.UPDATE}`:
       case `${Scope.VARIANT_PRICE}-${Act.UPDATE}`:
-      case `${Scope.VARIANT_STOCK}-${Act.UPDATE}`:
-      case `${Scope.VARIANT_PRICE}-${Act.INSERT}`:
-      case `${Scope.VARIANT_STOCK}-${Act.INSERT}`:
-      case `${Scope.VARIANT_PRICE}-${Act.DELETE}`:
-      case `${Scope.VARIANT_STOCK}-${Act.DELETE}`:
+      case `${Scope.VARIANT_STOCK}-${Act.UPDATE}`: {
+        // TODO: CONFIRM THESE CASES
+        // case `${Scope.VARIANT_PRICE}-${Act.INSERT}`:
+        // case `${Scope.VARIANT_STOCK}-${Act.INSERT}`:
+        // case `${Scope.VARIANT_PRICE}-${Act.DELETE}`:
+        // case `${Scope.VARIANT_STOCK}-${Act.DELETE}`:
         console.log('variant update');
+        try {
+          // GET TRAY VARIANT (API)
+          const variant = await getTrayVariant(notification);
+          tProductId = variant.Variant.product_id;
+
+          // GET SM ID FROM REGISTER
+          // const iProduct = await getIProductByT({ integrationId: notification.integrationId, tProductId });
+          const iProductSku = await getIProductSkuByT({
+            integrationId: notification.integrationId,
+            tProductId,
+            tVariantId: variant.Variant.id,
+          });
+
+          // CONVERT VARIANT TO SKU OBJECT
+          const skuToUpdate = convertToSSku(variant);
+          skuToUpdate.id = iProductSku.sSkuId;
+          // UPDATE SKU - it is related to Product
+          await updateSmSku({ sku: skuToUpdate, notification });
+
+          // UPDATE IPRODUCT_SKU (U state)
+          await updateIProductSku({
+            iProductSkuId: iProductSku.id,
+            isDeleteState: false,
+          });
+          await updateIProduct({ iProductId: iProductSku.iProductId, isDeleteState: false });
+          // LOG
+          log.info(
+            `A Sku has been updated. [Integration:${notification.integrationId}, iProductId:${skuToUpdate.id}, tVariantId: ${variant.Variant.id}, sSkuId: ${skuToUpdate.id}]`,
+          );
+        } catch (error) {
+          log.error(
+            `Failed to update Variant: ${notification.scopeId} for Integration: ${notification.integrationId}. Error: ${error}`,
+          );
+        }
         break;
-      case `${Scope.VARIANT}-${Act.DELETE}`:
+      }
+      case `${Scope.VARIANT}-${Act.DELETE}`: {
         console.log('variant delete');
+        try {
+          // GET IPRODUCT_SKU
+          const iProductSku = await getIProductSkuByVariant({ tVariantId: notification.scopeId });
+          // DELETE SM SKU
+          await deleteSmSku({ skuId: iProductSku.sSkuId, notification });
+        } catch (error) {
+          log.error(
+            `Failed to delete Variant: ${notification.scopeId} for Integration: ${notification.integrationId}. Error: ${error}`,
+          );
+        }
         break;
+      }
       default:
         log.warn(
-          `Notification with scope/action: ${notification.scopeName}/${notification.act} could not be processed`,
+          `Notification with scope-action: ${notification.scopeName}-${notification.act} could not be processed`,
         );
     }
   });

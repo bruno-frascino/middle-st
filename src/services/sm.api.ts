@@ -120,9 +120,35 @@ export async function postSku({
   sku: Sku;
   accessToken: string;
   fetchFn?: Function;
-}): Promise<Product> {
+}): Promise<Sku> {
   const url = `${baseUrl}/api/v1/products/${productId}/skus`;
   return smFetch({ url, method: 'POST', body: sku, fetchFn, accessToken });
+}
+
+export async function patchSku({
+  sku,
+  accessToken,
+  fetchFn = fetchWrapper,
+}: {
+  sku: Sku;
+  accessToken: string;
+  fetchFn?: Function;
+}): Promise<Sku> {
+  const url = `${baseUrl}/api/v1/products/skus/${sku.id}`;
+  return smFetch({ url, method: 'PATCH', body: sku, fetchFn, accessToken });
+}
+
+export async function deleteSku({
+  skuId,
+  accessToken,
+  fetchFn = fetchWrapper,
+}: {
+  skuId: number;
+  accessToken: string;
+  fetchFn?: Function;
+}): Promise<string> {
+  const url = `${baseUrl}/api/v1/products/skus/${skuId}`;
+  return smFetch({ url, method: 'DELETE', fetchFn, accessToken });
 }
 
 async function smFetch({
@@ -134,7 +160,7 @@ async function smFetch({
   errorHandlerFn = smFetchErrorHandler,
 }: {
   url: string;
-  method: 'POST' | 'GET' | 'PUT' | 'DELETE';
+  method: 'POST' | 'GET' | 'PUT' | 'PATCH' | 'DELETE';
   body?: any;
   fetchFn: Function;
   accessToken?: string;

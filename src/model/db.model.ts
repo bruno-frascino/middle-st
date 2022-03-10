@@ -53,4 +53,15 @@ export interface IProduct {
   sProductId: number;
   createDate: number;
   updateDate?: number;
+  state: string;
+}
+
+export interface IProductSku {
+  id: number;
+  iProductId: number;
+  sSkuId: number;
+  tVariantId: number;
+  createDate: number;
+  updateDate?: number;
+  state: string;
 }

@@ -45,6 +45,7 @@ export interface Variant {
   value: string; // "M"
 }
 export interface Sku {
+  id?: number;
   code_sku: string; //                id ?
   barcode: string; //                 ean
   prices: Price; //                   price && cost_price

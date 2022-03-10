@@ -3,7 +3,17 @@ import { Integration, Notification } from '../model/db.model';
 import { Product, Sku, SmToken } from '../model/sm.model';
 import { addToCurrentTime, getCurrentUnixTime } from '../shared/utils/utils';
 import { getIntegrationById, updateSConnectionDetails } from '../db/db';
-import { deleteProduct, getProduct, postLogin, postProduct, postRefresh, postSku, putProduct } from './sm.api';
+import {
+  deleteProduct,
+  deleteSku,
+  getProduct,
+  patchSku,
+  postLogin,
+  postProduct,
+  postRefresh,
+  postSku,
+  putProduct,
+} from './sm.api';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 /**
  * All SM services
@@ -155,4 +165,14 @@ export async function createSmSku({
 }) {
   const accessToken = await provideAccessToken(notification);
   return postSku({ productId, sku, accessToken });
+}
+
+export async function updateSmSku({ sku, notification }: { sku: Sku; notification: Notification }) {
+  const accessToken = await provideAccessToken(notification);
+  return patchSku({ sku, accessToken });
+}
+
+export async function deleteSmSku({ skuId, notification }: { skuId: number; notification: Notification }) {
+  const accessToken = await provideAccessToken(notification);
+  return deleteSku({ skuId, accessToken });
 }
