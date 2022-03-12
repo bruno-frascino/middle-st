@@ -1,7 +1,6 @@
 import { Act, Notification, Product, Scope, TrayToken, Variant } from '../model/tray.model';
 import log from '../logger';
 import {
-  deleteNotifications,
   getIntegrationById,
   getIntegrationByT,
   getOrderedNotifications,
@@ -11,7 +10,6 @@ import {
 } from '../db/db';
 import { Notification as ENotification, Integration } from '../model/db.model';
 import { convertStringToUnixTime, getCurrentUnixTime } from '../shared/utils/utils';
-import { manageNotifications } from './middle.service';
 import { getAuth, getProduct, getVariant, postAuth } from '../resources/tray.api';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 
@@ -40,19 +38,12 @@ export async function handleNotification(notification: Notification) {
   return id;
 }
 
-/**
- *
- * @returns
- */
-export async function monitorNotifications() {
-  log.info('Monitor checking notifications...');
+export async function getAllNotifications(): Promise<ENotification[]> {
   // Sort notifications by Seller/scopeName/scopeId/date
-  const notifications = await getOrderedNotifications();
-  log.info(`Notifications found: ${notifications.length}`);
-  if (notifications.length === 0) {
-    return;
-  }
+  return getOrderedNotifications();
+}
 
+export function getSlimNotifications(notifications: ENotification[]) {
   // FILTER OUT Mistake Notifications
   const mistakes = getMistakes(notifications);
   const noMistakes = notifications.filter((notification) => {
@@ -88,17 +79,16 @@ export async function monitorNotifications() {
     return !irrelevant.includes(notification.id);
   });
 
-  // Integrate with other system
-  // TODO - study how to use an interface here so we can detach this call
-  // from the implementation, making flexible if we change subsystem
-  manageNotifications(slimNotifications);
-
+  // TODO - Review this logic. Suggestion to keep a table with "unused" notifications
   // DELETE unnecessary notifications
-  await deleteNotifications(mistakes.concat(multiUpdates).concat(ordersAndCustomers).concat(irrelevant));
+  const totalUnused = mistakes.concat(multiUpdates).concat(ordersAndCustomers).concat(irrelevant);
+  // await deleteNotifications(mistakes.concat(multiUpdates).concat(ordersAndCustomers).concat(irrelevant));
 
-  console.log('Notifications size: ', notifications.length);
-  console.log('Mistakes size: ', mistakes.length);
-  console.log('filtered: ', noMistakes.length);
+  log.info(`Notifications size: ${notifications.length}`);
+  log.info(`Mistakes size: ${totalUnused.length}`);
+  log.info(`Slim sie:: ${slimNotifications.length}`);
+
+  return slimNotifications;
 }
 
 /**

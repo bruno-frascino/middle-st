@@ -1,11 +1,12 @@
 import config from 'config';
-import { IProduct, Notification } from '../model/db.model';
+import { IProduct } from '../model/db.model';
 import { Act, Scope, Product as TProduct, Variant } from '../model/tray.model';
 import { Condition, Product as SProduct, Sku } from '../model/sm.model';
 import {
+  getAllNotifications,
+  getSlimNotifications,
   getTrayProduct,
   getTrayVariant,
-  monitorNotifications,
   warmUpSystemConnection as warmUpTSystemConnection,
 } from './tray.service';
 import log from '../logger';
@@ -53,17 +54,29 @@ export async function initializeSystemConnections() {
 }
 
 export function initializeMonitors() {
-  const tMonitorInterval: number = config.get('tMonitorInterval');
+  const tMonitorInterval: number = config.get('tMonitorInterval'); // milliseconds
   const sMonitorInterval: number = config.get('sMonitorInterval');
 
   // Start Tray monitor
-  setInterval(monitorNotifications, tMonitorInterval);
+  setInterval(monitorTrayNotifications, tMonitorInterval);
   // Start SM monitor
   setInterval(monitorChanges, sMonitorInterval);
 }
 
-export function manageNotifications(notifications: Notification[]) {
-  notifications.forEach(async (notification) => {
+/**
+ *
+ * @returns
+ */
+export async function monitorTrayNotifications() {
+  log.info('Monitor checking notifications...');
+
+  const notifications = await getAllNotifications();
+  log.info(`Notifications found: ${notifications.length}`);
+  if (notifications.length === 0) {
+    return;
+  }
+
+  getSlimNotifications(notifications).forEach(async (notification) => {
     let tProductId;
     switch (`${notification.scopeName}-${notification.act}`) {
       case `${Scope.PRODUCT}-${Act.INSERT}`: {
