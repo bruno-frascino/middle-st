@@ -1,3 +1,6 @@
+-- To run: 
+-- sqlite3 <db_name>
+
 -- Create Tables
 -- S and T Integration Details
 CREATE TABLE INTEGRATION(
@@ -50,10 +53,10 @@ CREATE TABLE IPRODUCT(
   integrationId integer NOT NULL,
   tProductId integer UNIQUE NOT NULL,
   sProductId integer UNIQUE NOT NULL,
-  FOREIGN KEY(integrationId) REFERENCES INTEGRATION(id),
   createDate integer NOT NULL,
   updateDate integer, 
   state text NOT NULL, -- [C,U,D] CREATED, UPDATED, DELETED
+  FOREIGN KEY(integrationId) REFERENCES INTEGRATION(id)
 );
 
 -- I Product(S Product x T Product) x S Sku x T Variant
@@ -63,10 +66,10 @@ CREATE TABLE IPRODUCT_SKU(
   sSkuId text UNIQUE NOT NULL,
   tVariantId integer UNIQUE NOT NULL,
   tStock integer NOT NULL,
-  FOREIGN KEY(iProductId) REFERENCES IPRODUCT(id),
   createDate integer NOT NULL,
   updateDate integer, 
   state text NOT NULL, -- [C,U,D] CREATED, UPDATED, DELETED
+  FOREIGN KEY(iProductId) REFERENCES IPRODUCT(id)
 );
 
 -- Load
