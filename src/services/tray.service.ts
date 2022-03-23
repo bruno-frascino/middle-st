@@ -11,7 +11,6 @@ import { Notification as ENotification, Integration } from '../model/db.model';
 import { convertStringToUnixTime, getCurrentUnixTime } from '../shared/utils/utils';
 import { getAuth, getProduct, getVariant, postAuth, putVariant } from '../resources/tray.api';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
-import { updateProduct } from './sm.service';
 
 /**
  *
