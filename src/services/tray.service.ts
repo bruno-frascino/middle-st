@@ -1,7 +1,6 @@
 import { Act, Notification, Product, Scope, TrayToken, Variant } from '../model/tray.model';
 import log from '../logger';
 import {
-  getIntegrationById,
   getIntegrationByT,
   getOrderedNotifications,
   getTDetails,
@@ -10,8 +9,9 @@ import {
 } from '../db/db';
 import { Notification as ENotification, Integration } from '../model/db.model';
 import { convertStringToUnixTime, getCurrentUnixTime } from '../shared/utils/utils';
-import { getAuth, getProduct, getVariant, postAuth } from '../resources/tray.api';
+import { getAuth, getProduct, getVariant, postAuth, putVariant } from '../resources/tray.api';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
+import { updateProduct } from './sm.service';
 
 /**
  *
@@ -220,35 +220,22 @@ export function getIrrelevantUpdates(notifications: ENotification[]) {
   });
 }
 
-export async function getTrayProduct(notification: ENotification): Promise<Product> {
-  validateRequestParams(notification, 'getTrayProduct');
+export async function updateTrayVariant(variant: Variant, integration: Integration): Promise<Variant> {
+  const accessToken = await provideTrayAccessToken(integration);
 
-  const accessToken = await provideAccessToken(notification);
-  const { scopeId, storeUrl } = notification;
-
-  return getProduct({ domain: storeUrl, productId: scopeId, accessToken });
+  return putVariant({ variant, accessToken, domain: integration.sellerTStoreUrl || '' });
 }
 
-export async function getTrayVariant(notification: ENotification): Promise<Variant> {
-  validateRequestParams(notification, 'getTrayVariant');
+export async function getTrayProduct(productId: number, integration: Integration): Promise<Product> {
+  const accessToken = await provideTrayAccessToken(integration);
 
-  const accessToken = await provideAccessToken(notification);
-  const { storeUrl, scopeId } = notification;
-
-  return getVariant({ domain: storeUrl, variantId: scopeId, accessToken });
+  return getProduct({ domain: integration.sellerTStoreUrl || '', productId, accessToken });
 }
 
-function validateRequestParams(notification: ENotification, requestName: string) {
-  const { sellerId, scopeId, appCode, storeUrl } = notification;
-  if (!sellerId || !scopeId || !appCode || !storeUrl) {
-    const errorMessage = `Invalid ${requestName} params`;
-    log.error(errorMessage);
-    throw new MiddleError(errorMessage, ErrorCategory.BUS);
-  }
-}
+export async function getTrayVariant(variantId: number, integration: Integration): Promise<Variant> {
+  const accessToken = await provideTrayAccessToken(integration);
 
-export async function provideAccessToken(notification: ENotification): Promise<string> {
-  return warmUpSystemConnection(await getIntegrationById(notification.integrationId));
+  return getVariant({ domain: integration.sellerTStoreUrl ?? '', variantId, accessToken });
 }
 
 // First access
@@ -264,7 +251,7 @@ async function getRefreshedToken(refreshToken: string, storeUrl: string): Promis
   return getAuth({ domain: storeUrl, refreshToken });
 }
 
-export async function warmUpSystemConnection(integration: Integration): Promise<string> {
+export async function provideTrayAccessToken(integration: Integration): Promise<string> {
   // Required connection details
   const { id, sellerTId, sellerTStoreCode, sellerTStoreUrl, sellerTRefreshToken, sellerTAccessToken } = integration;
   if (!sellerTId || !sellerTStoreCode || !sellerTStoreUrl) {

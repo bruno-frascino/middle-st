@@ -2,33 +2,38 @@ import config from 'config';
 import { IProduct } from '../model/db.model';
 import { Act, Scope, Product as TProduct, Variant } from '../model/tray.model';
 import { Condition, Product as SProduct, Sku } from '../model/sm.model';
+import { getCurrentUnixTime } from '../shared/utils/utils';
 import {
   getAllNotifications,
   getSlimNotifications,
   getTrayProduct,
   getTrayVariant,
-  warmUpSystemConnection as warmUpTSystemConnection,
+  provideTrayAccessToken,
+  updateTrayVariant,
 } from './tray.service';
 import log from '../logger';
 import {
   createProduct as createSProduct,
   createSmSku,
   deleteSmSku,
-  monitorChanges,
-  removeProduct,
+  getSmSku,
+  provideSmAccessToken,
+  removeSmProduct,
   updateProduct,
   updateSmSku,
-  warmUpSystemConnection as warmUpSSystemConnection,
 } from './sm.service';
 import {
   createIProduct,
   createIProductSku,
+  getAllIntegrations,
   getIProductByT,
   getIProductSkuByT,
   getIProductSkuByVariant,
-  getIntegrations,
+  getIProductSkusByIntegration,
+  getIntegrationById,
   updateIProduct,
   updateIProductSku,
+  updateIProductSkuByIProduct,
 } from '../db/db';
 
 /**
@@ -37,7 +42,7 @@ import {
 
 export async function initializeSystemConnections() {
   // GET INTEGRATIONS
-  const integrations = await getIntegrations();
+  const integrations = await getAllIntegrations();
   if (!integrations || integrations.length === 0) {
     log.warn(`No Integrations could be found`);
     return;
@@ -45,8 +50,8 @@ export async function initializeSystemConnections() {
 
   try {
     integrations.forEach(async (integration) => {
-      await warmUpTSystemConnection(integration);
-      await warmUpSSystemConnection(integration);
+      await provideTrayAccessToken(integration);
+      await provideSmAccessToken(integration);
     });
   } catch (error) {
     log.error(`System connections initialization error: ${error}`);
@@ -60,7 +65,7 @@ export function initializeMonitors() {
   // Start Tray monitor
   setInterval(monitorTrayNotifications, tMonitorInterval);
   // Start SM monitor
-  setInterval(monitorChanges, sMonitorInterval);
+  setInterval(monitorSmChanges, sMonitorInterval);
 }
 
 /**
@@ -78,17 +83,18 @@ export async function monitorTrayNotifications() {
 
   getSlimNotifications(notifications).forEach(async (notification) => {
     let tProductId;
+    const integration = await getIntegrationById(notification.integrationId);
     switch (`${notification.scopeName}-${notification.act}`) {
       case `${Scope.PRODUCT}-${Act.INSERT}`: {
         console.log('product insert');
         try {
           // GET TRAY PRODUCT (API)
-          const tProduct = await getTrayProduct(notification);
+          const tProduct = await getTrayProduct(notification.scopeId, integration);
           tProductId = tProduct.Product.id;
           // POPULATE SM PRODUCT OBJECT
           const sProduct = convertToSProduct(tProduct);
           // CREATE SM PRODUCT (API)
-          const apiSProduct = await createSProduct(sProduct, notification);
+          const apiSProduct = await createSProduct(sProduct, integration);
           // CREATE DB REGISTER (Seller x SM Id x Tray Id)
           const iProduct: IProduct = await registerIntegratedProduct(
             notification.integrationId,
@@ -116,7 +122,7 @@ export async function monitorTrayNotifications() {
         console.log('product update');
         try {
           // GET TRAY PRODUCT (API)
-          const tProduct = await getTrayProduct(notification);
+          const tProduct = await getTrayProduct(notification.scopeId, integration);
           tProductId = tProduct.Product.id;
           // GET SM ID FROM REGISTER
           const iProduct = await getIProductByT({
@@ -130,7 +136,7 @@ export async function monitorTrayNotifications() {
           // UPDATE SM PRODUCT (API)
           // sProductToUpdate.id = sProduct.id;
           sProductToUpdate.id = iProduct.sProductId;
-          await updateProduct(sProductToUpdate, notification);
+          await updateProduct(sProductToUpdate, integration);
           // UPDATE DB REGISTER
           await updateIProduct({ iProductId: iProduct.id, isDeleteState: false });
           // LOG
@@ -154,10 +160,11 @@ export async function monitorTrayNotifications() {
             tProductId,
           });
           // DELETE SM PRODUCT
-          await removeProduct({ productId: iProduct.sProductId, notification });
+          await removeSmProduct({ productId: iProduct.sProductId, integration });
           // UPDATE DB REGISTER
 
           await updateIProduct({ iProductId: iProduct.id, isDeleteState: true });
+          await updateIProductSkuByIProduct({ iProductId: iProduct.id, isDeleteState: true });
         } catch (error) {
           // TODO - Register any integration that failed in a table, not just log, with enough info to trace back to the initial notification
           // consider a scenario where failed notifications can be retried automatically by the system
@@ -172,7 +179,7 @@ export async function monitorTrayNotifications() {
         console.log('variant insert');
         try {
           // GET TRAY VARIANT (API)
-          const variant = await getTrayVariant(notification);
+          const variant = await getTrayVariant(notification.scopeId, integration);
           tProductId = variant.Variant.product_id;
 
           // GET SM ID FROM REGISTER
@@ -182,7 +189,11 @@ export async function monitorTrayNotifications() {
           // CONVERT VARIANT TO SKU OBJECT
           const skuToCreate = convertToSSku(variant);
           // CREATE NEW SKU - it is related to Product
-          const sSku = await createSmSku({ productId: iProduct.sProductId, sku: skuToCreate, notification });
+          const sSku = await createSmSku({
+            productId: iProduct.sProductId,
+            sku: skuToCreate,
+            integration,
+          });
 
           // UPDATE IPRODUCT (U state)
           await updateIProduct({ iProductId: iProduct.id, isDeleteState: false });
@@ -191,6 +202,7 @@ export async function monitorTrayNotifications() {
             iProductId: iProduct.id,
             sSkuId: sSku.id ?? 0,
             tVariantId: variant.Variant.id,
+            tStock: variant.Variant.stock,
           });
           // LOG
           log.info(
@@ -214,7 +226,7 @@ export async function monitorTrayNotifications() {
         console.log('variant update');
         try {
           // GET TRAY VARIANT (API)
-          const variant = await getTrayVariant(notification);
+          const variant = await getTrayVariant(notification.scopeId, integration);
           tProductId = variant.Variant.product_id;
 
           // GET SM ID FROM REGISTER
@@ -229,11 +241,12 @@ export async function monitorTrayNotifications() {
           const skuToUpdate = convertToSSku(variant);
           skuToUpdate.id = iProductSku.sSkuId;
           // UPDATE SKU - it is related to Product
-          await updateSmSku({ sku: skuToUpdate, notification });
+          await updateSmSku({ sku: skuToUpdate, integration });
 
           // UPDATE IPRODUCT_SKU (U state)
           await updateIProductSku({
             iProductSkuId: iProductSku.id,
+            tStock: variant.Variant.stock,
             isDeleteState: false,
           });
           await updateIProduct({ iProductId: iProductSku.iProductId, isDeleteState: false });
@@ -254,7 +267,7 @@ export async function monitorTrayNotifications() {
           // GET IPRODUCT_SKU
           const iProductSku = await getIProductSkuByVariant({ tVariantId: notification.scopeId });
           // DELETE SM SKU
-          await deleteSmSku({ skuId: iProductSku.sSkuId, notification });
+          await deleteSmSku({ skuId: iProductSku.sSkuId, integration });
         } catch (error) {
           log.error(
             `Failed to delete Variant: ${notification.scopeId} for Integration: ${notification.integrationId}. Error: ${error}`,
@@ -268,6 +281,57 @@ export async function monitorTrayNotifications() {
         );
     }
   });
+}
+
+export async function monitorSmChanges() {
+  log.info(`SM monitor started at ${getCurrentUnixTime()}`);
+  // GET ALL INTEGRATIONS
+  const integrations = await getAllIntegrations();
+  // const iProducts = await getAllIProducts();
+  // log.info(`SM Changes Monitor has started - Products list size: ${iProducts.length}`);
+
+  if (!integrations) {
+    log.error(`Sm monitor couldn't run. Invalid or no integrations found.`);
+  }
+
+  // Check Products per seller
+  integrations.forEach(async (integration) => {
+    // GET IPRODUCTS for this seller
+    // const iProducts = await getIProductsByIntegration(integration.id);
+    // iProducts.forEach(async (iProduct) => {
+    // What to compare?
+    // Sold - Stock
+    // TODO - Check what practically means to be sold
+    // - register is gone or just stock decrease to 0 or should check another field
+
+    // GET integrated SKUS
+    const iProductSkus = await getIProductSkusByIntegration(integration.id);
+    // Get sku
+    const sSku = await getSmSku({ skuId: iProductSkus.sSkuId, integration });
+    // Get sku from Sm and compare stock to the integration table
+    // Get the latest from Tray if SM stock is already different from the integration table
+    if (sSku.stock !== iProductSkus.tStock) {
+      // double check there's nothing in pipeline to be updated
+      // TODO: Check what to do in case both market places sell the last item
+      // TODO: T Product and TVariant have stock fields, which one to look at?
+      const tVariant = await getTrayVariant(iProductSkus.iProductId, integration);
+      if (sSku.stock <= tVariant.Variant.stock) {
+        // UPDATE STOCK IN TRAY
+        tVariant.Variant.stock = sSku.stock;
+        try {
+          await updateTrayVariant(tVariant, integration);
+          log.info(
+            `Stock updated in Tray for integration: ${integration.id}, sSku: ${sSku.id}, iProduct: ${iProductSkus.iProductId} and iProductSku ${iProductSkus.id}`,
+          );
+        } catch (error) {
+          log.error(
+            `Failed to update stock in Tray for integration: ${integration.id}, sSku: ${sSku.id}, iProduct: ${iProductSkus.iProductId} and iProductSku ${iProductSkus.id}`,
+          );
+        }
+      }
+    }
+  });
+  log.info(`SM monitor finished at: ${getCurrentUnixTime()}`);
 }
 
 // TODO - Product conversion

@@ -19,19 +19,21 @@ export async function getProduct({
   return trayFetch({ url, method: 'GET', fetchFn });
 }
 
-// // Update Product
-// export async function putProduct({
-//   product,
-//   accessToken,
-//   fetchFn = fetchWrapper,
-// }: {
-//   product: Product;
-//   accessToken: string;
-//   fetchFn?: Function;
-// }): Promise<Product> {
-//   const url = `${baseUrl}/api/v1/products/${product.id}`;
-//   return trayFetch({ url, method: 'PUT', body: product, fetchFn, accessToken });
-// }
+// Update Variant
+export async function putVariant({
+  domain,
+  variant,
+  accessToken,
+  fetchFn = fetchWrapper,
+}: {
+  domain: string;
+  variant: Variant;
+  accessToken: string;
+  fetchFn?: Function;
+}): Promise<Variant> {
+  const url = `https://${domain}/products/variants/${variant.Variant.id}?access_token=${accessToken}`;
+  return trayFetch({ url, method: 'PUT', body: variant, fetchFn });
+}
 
 // // Delete Product
 // export async function deleteProduct({

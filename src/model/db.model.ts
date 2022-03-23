@@ -61,6 +61,7 @@ export interface IProductSku {
   iProductId: number;
   sSkuId: number;
   tVariantId: number;
+  tStock: number;
   createDate: number;
   updateDate?: number;
   state: string;

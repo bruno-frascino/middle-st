@@ -151,6 +151,19 @@ export async function deleteSku({
   return smFetch({ url, method: 'DELETE', fetchFn, accessToken });
 }
 
+export async function getSku({
+  skuId,
+  accessToken,
+  fetchFn = fetchWrapper,
+}: {
+  skuId: number;
+  accessToken: string;
+  fetchFn?: Function;
+}): Promise<Sku> {
+  const url = `${baseUrl}/api/v1/products/skus/${skuId}`;
+  return smFetch({ url, method: 'GET', fetchFn, accessToken });
+}
+
 async function smFetch({
   url,
   method,

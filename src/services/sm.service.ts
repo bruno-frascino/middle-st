@@ -1,12 +1,13 @@
 import log from '../logger';
-import { Integration, Notification } from '../model/db.model';
+import { Integration } from '../model/db.model';
 import { Product, Sku, SmToken } from '../model/sm.model';
 import { addToCurrentTime, getCurrentUnixTime } from '../shared/utils/utils';
-import { getIntegrationById, updateSConnectionDetails } from '../db/db';
+import { updateSConnectionDetails } from '../db/db';
 import {
   deleteProduct,
   deleteSku,
   getProduct,
+  getSku,
   patchSku,
   postLogin,
   postProduct,
@@ -18,13 +19,7 @@ import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 /**
  * All SM services
  */
-export async function monitorChanges() {
-  // TODO monitorChanges
-  // BASED ON INTEGRATIONS
-}
-
-export async function warmUpSystemConnection(integration: Integration): Promise<string> {
-  // TODO - manageSystemConnection
+export async function provideSmAccessToken(integration: Integration): Promise<string> {
   // Required connection details
   const { id, sellerSId, sellerSKey, sellerSSecret, sellerSAccessToken } = integration;
   if (!sellerSKey || !sellerSSecret || !sellerSId) {
@@ -97,18 +92,14 @@ async function getNewAccessToken({ key, secret }: { key: string; secret: string 
   return postLogin({ key, secret });
 }
 
-export async function provideAccessToken(notification: Notification): Promise<string> {
-  return warmUpSystemConnection(await getIntegrationById(notification.integrationId));
-}
-
 /**
  *
  * @param product
  * @param notification
  * @returns
  */
-export async function createProduct(product: Product, notification: Notification): Promise<Product> {
-  const accessToken = await provideAccessToken(notification);
+export async function createProduct(product: Product, integration: Integration): Promise<Product> {
+  const accessToken = await provideSmAccessToken(integration);
 
   return postProduct({ product, accessToken });
 }
@@ -119,8 +110,8 @@ export async function createProduct(product: Product, notification: Notification
  * @param notification
  * @returns
  */
-export async function getSmProductById(productId: number, notification: Notification): Promise<Product> {
-  const accessToken = await provideAccessToken(notification);
+export async function getSmProductById(productId: number, integration: Integration): Promise<Product> {
+  const accessToken = await provideSmAccessToken(integration);
 
   return getProduct({ productId, accessToken });
 }
@@ -131,8 +122,8 @@ export async function getSmProductById(productId: number, notification: Notifica
  * @param notification
  * @returns
  */
-export async function updateProduct(product: Product, notification: Notification): Promise<Product> {
-  const accessToken = await provideAccessToken(notification);
+export async function updateProduct(product: Product, integration: Integration): Promise<Product> {
+  const accessToken = await provideSmAccessToken(integration);
 
   return putProduct({ product, accessToken });
 }
@@ -142,14 +133,14 @@ export async function updateProduct(product: Product, notification: Notification
  * @param param0
  * @returns
  */
-export async function removeProduct({
+export async function removeSmProduct({
   productId,
-  notification,
+  integration,
 }: {
   productId: number;
-  notification: Notification;
+  integration: Integration;
 }): Promise<any> {
-  const accessToken = await provideAccessToken(notification);
+  const accessToken = await provideSmAccessToken(integration);
 
   return deleteProduct({ productId, accessToken });
 }
@@ -157,22 +148,27 @@ export async function removeProduct({
 export async function createSmSku({
   productId,
   sku,
-  notification,
+  integration,
 }: {
   productId: number;
   sku: Sku;
-  notification: Notification;
+  integration: Integration;
 }) {
-  const accessToken = await provideAccessToken(notification);
+  const accessToken = await provideSmAccessToken(integration);
   return postSku({ productId, sku, accessToken });
 }
 
-export async function updateSmSku({ sku, notification }: { sku: Sku; notification: Notification }) {
-  const accessToken = await provideAccessToken(notification);
+export async function updateSmSku({ sku, integration }: { sku: Sku; integration: Integration }) {
+  const accessToken = await provideSmAccessToken(integration);
   return patchSku({ sku, accessToken });
 }
 
-export async function deleteSmSku({ skuId, notification }: { skuId: number; notification: Notification }) {
-  const accessToken = await provideAccessToken(notification);
+export async function deleteSmSku({ skuId, integration }: { skuId: number; integration: Integration }) {
+  const accessToken = await provideSmAccessToken(integration);
   return deleteSku({ skuId, accessToken });
+}
+
+export async function getSmSku({ skuId, integration }: { skuId: number; integration: Integration }) {
+  const accessToken = await provideSmAccessToken(integration);
+  return getSku({ skuId, accessToken });
 }
