@@ -45,7 +45,7 @@ export function getRow(sql: string, params: any[] = []) {
 }
 
 export function run(sql: string, params: {} = {}) {
-  log.info(`Running sql: ${sql} with params: ${JSON.stringify(params)}`);
+  log.debug(`Running sql: ${sql} with params: ${JSON.stringify(params)}`);
   return new Promise((resolve, reject) => {
     // eslint-disable-next-line func-names
     getInstance().run(sql, params, function (err) {
@@ -60,7 +60,7 @@ export function run(sql: string, params: {} = {}) {
 }
 
 export function all(sql: string, params: {} = {}) {
-  log.info(`Running sql: ${sql} with params: ${JSON.stringify(params)}`);
+  log.debug(`Running sql: ${sql} with params: ${JSON.stringify(params)}`);
   return new Promise((resolve, reject) => {
     // eslint-disable-next-line func-names
     getInstance().all(sql, params, (err, rows) => {

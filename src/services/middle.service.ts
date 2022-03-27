@@ -56,6 +56,7 @@ export async function initializeSystemConnections() {
   } catch (error) {
     log.error(`System connections initialization error: ${error}`);
   }
+  log.info(`System connections warmed up`);
 }
 
 export function initializeMonitors() {
@@ -73,13 +74,15 @@ export function initializeMonitors() {
  * @returns
  */
 export async function monitorTrayNotifications() {
-  log.info('Monitor checking notifications...');
+  log.info('Tray monitor checking notifications...');
+  const start = getCurrentUnixTime();
 
   const notifications = await getAllNotifications();
-  log.info(`Notifications found: ${notifications.length}`);
   if (notifications.length === 0) {
+    log.warn(`No Tray notifications were found`);
     return;
   }
+  log.info(`Tray notifications found: ${notifications.length}`);
 
   getSlimNotifications(notifications).forEach(async (notification) => {
     let tProductId;
@@ -281,17 +284,22 @@ export async function monitorTrayNotifications() {
         );
     }
   });
+
+  const stop = getCurrentUnixTime();
+  log.info(`Tray monitor started at: ${start} and finished after ${(stop - start) / 60}mins`);
 }
 
 export async function monitorSmChanges() {
-  log.info(`SM monitor started at ${getCurrentUnixTime()}`);
+  const start = getCurrentUnixTime();
+  log.info(`SM monitor starting to check product changes`);
   // GET ALL INTEGRATIONS
   const integrations = await getAllIntegrations();
   // const iProducts = await getAllIProducts();
   // log.info(`SM Changes Monitor has started - Products list size: ${iProducts.length}`);
 
-  if (!integrations) {
-    log.error(`Sm monitor couldn't run. Invalid or no integrations found.`);
+  if (integrations.length === 0) {
+    log.warn(`Sm monitor could not run. No active integrations found.`);
+    return;
   }
 
   // Check Products per seller
@@ -331,7 +339,7 @@ export async function monitorSmChanges() {
       }
     }
   });
-  log.info(`SM monitor finished at: ${getCurrentUnixTime()}`);
+  log.info(`SM monitor finished at: ${getCurrentUnixTime() - start}`);
 }
 
 // TODO - Product conversion

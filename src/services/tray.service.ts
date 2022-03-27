@@ -271,7 +271,7 @@ export async function provideTrayAccessToken(integration: Integration): Promise<
       const trayToken = await getNewAccessToken(sellerTStoreCode, sellerTStoreUrl);
       integrationCopy = copyToken(integration, trayToken);
     } catch (err) {
-      const errorMessage = `New access token could not be retrieved for integration: ${id}`;
+      const errorMessage = `Tray new access token could not be retrieved for integration: ${id}:${integration.sellerName}`;
       log.error(errorMessage);
       throw new MiddleError(errorMessage, ErrorCategory.BUS);
     }

@@ -10,6 +10,7 @@ const log = logger({
   base: {
     pid: false,
   },
+  level: 'info',
   timestamp: timestampFormat,
 });
 
