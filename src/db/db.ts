@@ -1,7 +1,7 @@
 import config from 'config';
 import sqlite3 from 'sqlite3';
 import log from '../logger';
-import { Notification as ENotification, IProduct, IProductSku, Integration, TDetails } from '../model/db.model';
+import { Notification as ENotification, IProduct, IProductSku, Integration, TCredentials } from '../model/db.model';
 import { Notification } from '../model/tray.model';
 
 let db: sqlite3.Database;
@@ -31,7 +31,7 @@ export function getInstance() {
 }
 
 export function getRow(sql: string, params: any[] = []) {
-  log.info(`Running get sql: ${sql} with params: ${params}`);
+  log.debug(`Running get sql: ${sql} with params: ${params}`);
   return new Promise((resolve, reject) => {
     getInstance().get(sql, params, (err, result) => {
       if (err) {
@@ -142,9 +142,9 @@ export async function deleteNotifications(ids: number[]) {
   return (await run(sql)) as Object;
 }
 
-export async function getTDetails() {
-  const sql = `SELECT * FROM T_DETAILS WHERE ID = 1`;
-  return (await getRow(sql)) as TDetails;
+export async function getTCredentials() {
+  const sql = `SELECT * FROM T_CREDENTIALS WHERE ID = 1`;
+  return (await getRow(sql)) as TCredentials;
 }
 
 export async function updateTConnectionDetails(integration: Integration) {
@@ -168,7 +168,7 @@ export async function updateSConnectionDetails(integration: Integration) {
   const sql = `UPDATE INTEGRATION 
   SET 
     sellerSAccessToken = $accessToken,
-    sellerSAccessExpirationDate = $accessExpirationDate,
+    sellerSAccessExpirationDate = $accessExpirationDate
   WHERE ID = $id`;
   return (await run(sql, {
     $id: integration.id,
@@ -361,19 +361,19 @@ export async function getIProductSkusByIntegration(integrationId: number) {
   const sql = `SELECT 
     IPRODUCT_SKU.id,
     IPRODUCT_SKU.iProductId,
-    IPRODUCT_SKU.sKuId,
+    IPRODUCT_SKU.sSKuId,
     IPRODUCT_SKU.tVariantId,
     IPRODUCT_SKU.tStock,
     IPRODUCT_SKU.createDate,
     IPRODUCT_SKU.updateDate,
-    IPRODUCT_SKU.state,
+    IPRODUCT_SKU.state
   FROM IPRODUCT_SKU, IPRODUCT, INTEGRATION
   WHERE IPRODUCT_SKU.iProductId = IPRODUCT.id
     AND IPRODUCT_SKU.state <> 'D'
     AND IPRODUCT.state <> 'D'
     AND IPRODUCT.integrationId = INTEGRATION.id
     AND INTEGRATION.active = 1
-    AND INTEGRATION = ${integrationId}
+    AND INTEGRATION.id = ${integrationId}
   ;`;
 
   return (await getRow(sql)) as IProductSku;

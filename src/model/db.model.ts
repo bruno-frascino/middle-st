@@ -40,7 +40,7 @@ export interface NotificationKey {
   scopeId: number;
 }
 
-export interface TDetails {
+export interface TCredentials {
   id: number;
   key: string;
   secret: string;

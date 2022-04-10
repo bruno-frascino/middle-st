@@ -1,5 +1,6 @@
--- To run: 
+-- To run cli: 
 -- sqlite3 <db_name>
+-- to quit: ctrl+d
 
 -- Create Tables
 -- S and T Integration Details
@@ -41,7 +42,7 @@ CREATE TABLE NOTIFICATION(
   complete BOOLEAN NOT NULL CHECK (complete IN (0,1))
 );
  -- Middleware T Credentials
-CREATE TABLE T_DETAILS(
+CREATE TABLE T_CREDENTIALS(
   id integer NOT NULL PRIMARY KEY, 
   'key' text NOT NULL,
   secret text NOT NULL
@@ -73,17 +74,43 @@ CREATE TABLE IPRODUCT_SKU(
 );
 
 -- Load
-INSERT INTO INTEGRATION VALUES(
+INSERT INTO INTEGRATION(
+  id,
+  sellerName, 
+  sellerSId, 
+  sellerSKey, 
+  sellerSSecret, 
+  -- sellerSStoreCode, 
+  -- sellerSStoreUrl,
+  -- sellerSAccessToken,
+  -- sellerSRefreshToken,
+  -- sellerSAccessExpirationDate,
+  -- sellerSRefreshExpirationDate,
+  sellerTId, 
+  -- sellerTKey, 
+  -- sellerTSecret, 
+  sellerTStoreCode, 
+  sellerTStoreUrl,
+  -- sellerTAccessToken,
+  -- sellerTRefreshToken,
+  -- sellerTAccessExpirationDate,
+  -- sellerTRefreshExpirationDate,
+  active
+) 
+VALUES(
+  1,
+  'Loja Test 1',
+  1,
+  'Iki7Q2W3xS7UZw0kNHvsGnmMpAE0tZ35',
+  'uvL0Ksh2TKgFJKdKiXdVGiUuD0IRwsam',
   1, 
-  'SellerTest', 
-  1, 
-  'Skey1', 'Ssecret1', 'Scode1', 
-  1, 
-  'Tkey1', 'Tsecret1', 'Tcode1',
-  1);
+  'Tray Code 1',
+  'Tray Url 1',
+  1
+  );
 
 INSERT INTO NOTIFICATION VALUES(null, 'scope', 'act', 99, strftime('%s','now'));
-INSERT INTO T_DETAILS VALUES(
+INSERT INTO T_CREDENTIALS VALUES(
   null, 
   'tKey1', 
   'tSecret1'
@@ -108,4 +135,5 @@ DELETE FROM SM_USER WHERE id = 1;
 -- Delete Table
 DROP TABLE SM_USER;
 DROP TABLE INTEGRATION;
+DROP TABLE T_CREDENTIALS;
 
