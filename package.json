@@ -41,6 +41,7 @@
     "start": "node dist/app.js",
     "dev": "nodemon --config nodemon.json src/app.ts",
     "build": "tsc -p .",
+    "go": "yarn build && yarn start",
     "clean": "rm -rf ./dist",
     "verify": "eslint --max-warnings=0 --ext .ts,.js src/",
     "test": "env UNIT_TEST_LOGS=silent jest",
@@ -55,6 +56,7 @@
     "config": "^3.3.6",
     "dayjs": "^1.10.6",
     "express": "^4.17.1",
+    "node-fetch": "^2.6.5",
     "pino": "^6.13.1",
     "pino-pretty": "^6.0.0",
     "sqlite3": "^5.0.2"
