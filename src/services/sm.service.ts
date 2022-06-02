@@ -41,7 +41,14 @@ export async function provideSmAccessToken(integration: Integration): Promise<st
     accessToken = await getNewAccessToken({ key: sellerSKey, secret: sellerSSecret });
     // refresh token expired
   } else {
-    accessToken = await getRefreshedToken(sellerSAccessToken);
+    try {
+      accessToken = await getRefreshedToken(sellerSAccessToken);
+      // refresh could fail too
+    } catch (error) {
+      log.error(`Failed to refresh SM token: ${JSON.stringify(error)}`);
+      // get a new token then:
+      accessToken = await getNewAccessToken({ key: sellerSKey, secret: sellerSSecret });
+    }
   }
 
   // Update record
