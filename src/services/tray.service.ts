@@ -3,7 +3,7 @@ import log from '../logger';
 import {
   getIntegrationByT,
   getOrderedNotifications,
-  getTDetails,
+  getTCredentials,
   insertNotification,
   updateTConnectionDetails,
 } from '../db/db';
@@ -239,7 +239,7 @@ export async function getTrayVariant(variantId: number, integration: Integration
 
 // First access
 async function getNewAccessToken(code: string, storeUrl: string): Promise<TrayToken> {
-  const details = await getTDetails(); // unique for this system
+  const details = await getTCredentials(); // unique for this system
   const { key, secret } = details;
 
   return postAuth({ domain: storeUrl, consumer_key: key, consumer_secret: secret, code });
@@ -271,9 +271,10 @@ export async function provideTrayAccessToken(integration: Integration): Promise<
       const trayToken = await getNewAccessToken(sellerTStoreCode, sellerTStoreUrl);
       integrationCopy = copyToken(integration, trayToken);
     } catch (err) {
-      const errorMessage = `Tray new access token could not be retrieved for integration: ${id}:${integration.sellerName}`;
-      log.error(errorMessage);
-      throw new MiddleError(errorMessage, ErrorCategory.BUS);
+      throw new MiddleError(
+        `Tray new access token could not be retrieved for integration: ${id}:${integration.sellerName}`,
+        ErrorCategory.BUS,
+      );
     }
   }
 
