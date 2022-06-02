@@ -1,3 +1,4 @@
+import fetch, { RequestInfo, RequestInit, Response } from 'node-fetch';
 import log from '../../logger';
 import { ErrorCategory, HttpStatus, MiddleError } from '../errors/MiddleError';
 
@@ -26,23 +27,28 @@ export async function fetchWrapper({
   const requestTime = new Date();
   let responseTime;
   try {
-    log.info(`Calling ${serviceName}`, {
-      ucode: '73f97d7',
-      requestTime,
-      request: {
-        ...options,
-        url,
-      },
-    });
+    // TODO don't log sensitive data
+    log.debug(
+      `Calling ${serviceName}, ${JSON.stringify({
+        ucode: '73f97d7',
+        requestTime,
+        request: {
+          ...options,
+          url,
+        },
+      })}`,
+    );
     response = await fetchFn(url, options);
     responseTime = new Date();
   } catch (err) {
-    log.error(`${serviceName} network error:`, {
-      ucode: 'b2bb06a',
-      requestTime,
-      responseTime: new Date(),
-      error: err,
-    });
+    log.error(
+      `${serviceName} network error: ${JSON.stringify({
+        ucode: 'b2bb06a',
+        requestTime,
+        responseTime: new Date(),
+        error: err,
+      })}`,
+    );
     throw new MiddleError(
       `Failed to fetch ${url} from ${serviceName}`,
       ErrorCategory.TECH,
@@ -108,7 +114,7 @@ export async function fetchWrapper({
   return Promise.resolve(responseJson);
 }
 
-export function fetchApi(url: RequestInfo, init?: RequestInit) {
+export async function fetchApi(url: RequestInfo, init?: RequestInit) {
   if (!init) {
     // eslint-disable-next-line no-param-reassign
     init = { headers: {} };
