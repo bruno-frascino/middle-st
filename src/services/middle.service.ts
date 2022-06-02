@@ -41,6 +41,7 @@ import {
  * */
 
 export async function initializeSystemConnections() {
+  log.info(`Initializing System Connections`);
   // GET INTEGRATIONS
   const integrations = await getAllIntegrations();
   if (!integrations || integrations.length === 0) {
@@ -48,25 +49,28 @@ export async function initializeSystemConnections() {
     return;
   }
 
-  try {
-    integrations.forEach(async (integration) => {
+  integrations.forEach(async (integration) => {
+    try {
       await provideTrayAccessToken(integration);
       await provideSmAccessToken(integration);
-    });
-  } catch (error) {
-    log.error(`System connections initialization error: ${error}`);
-  }
-  log.info(`System connections warmed up`);
+    } catch (error) {
+      log.error(`System connection initialization error. ${error}`);
+    }
+  });
 }
 
 export function initializeMonitors() {
   const tMonitorInterval: number = config.get('tMonitorInterval'); // milliseconds
   const sMonitorInterval: number = config.get('sMonitorInterval');
 
-  // Start Tray monitor
-  setInterval(monitorTrayNotifications, tMonitorInterval);
-  // Start SM monitor
-  setInterval(monitorSmChanges, sMonitorInterval);
+  try {
+    // Start Tray monitor
+    setInterval(monitorTrayNotifications, tMonitorInterval);
+    // Start SM monitor
+    setInterval(monitorSmChanges, sMonitorInterval);
+  } catch (error) {
+    log.error(`Monitoring error: ${JSON.stringify(error)}`);
+  }
 }
 
 /**
@@ -290,8 +294,8 @@ export async function monitorTrayNotifications() {
 }
 
 export async function monitorSmChanges() {
-  const start = getCurrentUnixTime();
-  log.info(`SM monitor starting to check product changes`);
+  const start = Date.now();
+  log.info(`SM monitor checking product changes`);
   // GET ALL INTEGRATIONS
   const integrations = await getAllIntegrations();
   // const iProducts = await getAllIProducts();
@@ -314,32 +318,34 @@ export async function monitorSmChanges() {
 
     // GET integrated SKUS
     const iProductSkus = await getIProductSkusByIntegration(integration.id);
-    // Get sku
-    const sSku = await getSmSku({ skuId: iProductSkus.sSkuId, integration });
-    // Get sku from Sm and compare stock to the integration table
-    // Get the latest from Tray if SM stock is already different from the integration table
-    if (sSku.stock !== iProductSkus.tStock) {
-      // double check there's nothing in pipeline to be updated
-      // TODO: Check what to do in case both market places sell the last item
-      // TODO: T Product and TVariant have stock fields, which one to look at?
-      const tVariant = await getTrayVariant(iProductSkus.iProductId, integration);
-      if (sSku.stock <= tVariant.Variant.stock) {
-        // UPDATE STOCK IN TRAY
-        tVariant.Variant.stock = sSku.stock;
-        try {
-          await updateTrayVariant(tVariant, integration);
-          log.info(
-            `Stock updated in Tray for integration: ${integration.id}, sSku: ${sSku.id}, iProduct: ${iProductSkus.iProductId} and iProductSku ${iProductSkus.id}`,
-          );
-        } catch (error) {
-          log.error(
-            `Failed to update stock in Tray for integration: ${integration.id}, sSku: ${sSku.id}, iProduct: ${iProductSkus.iProductId} and iProductSku ${iProductSkus.id}`,
-          );
+    if (iProductSkus) {
+      // Get sku
+      const sSku = await getSmSku({ skuId: iProductSkus.sSkuId, integration });
+      // Get sku from Sm and compare stock to the integration table
+      // Get the latest from Tray if SM stock is already different from the integration table
+      if (sSku.stock !== iProductSkus.tStock) {
+        // double check there's nothing in pipeline to be updated
+        // TODO: Check what to do in case both market places sell the last item
+        // TODO: T Product and TVariant have stock fields, which one to look at?
+        const tVariant = await getTrayVariant(iProductSkus.iProductId, integration);
+        if (sSku.stock <= tVariant.Variant.stock) {
+          // UPDATE STOCK IN TRAY
+          tVariant.Variant.stock = sSku.stock;
+          try {
+            await updateTrayVariant(tVariant, integration);
+            log.info(
+              `Stock updated in Tray for integration: ${integration.id}, sSku: ${sSku.id}, iProduct: ${iProductSkus.iProductId} and iProductSku ${iProductSkus.id}`,
+            );
+          } catch (error) {
+            log.error(
+              `Failed to update stock in Tray for integration: ${integration.id}, sSku: ${sSku.id}, iProduct: ${iProductSkus.iProductId} and iProductSku ${iProductSkus.id}`,
+            );
+          }
         }
       }
     }
   });
-  log.info(`SM monitor finished at: ${getCurrentUnixTime() - start}`);
+  log.info(`SM monitor finished in: ${Date.now() - start} milliseconds`);
 }
 
 // TODO - Product conversion
