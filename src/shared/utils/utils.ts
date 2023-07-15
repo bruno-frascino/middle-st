@@ -26,3 +26,16 @@ export function getCurrentUnixTime() {
   const now = Math.floor(Date.now() / 1000); // Unix time is Seconds since 01-01-70
   return now;
 }
+
+export enum EVarNames {
+  PORT = 'PORT',
+  HOST = 'HOST',
+  DB_NAME = 'DB_NAME',
+  VERBOSE = 'VERBOSE',
+  SM_BASE_URL = 'S_BASE_URL',
+  SM_MONITOR_INTERVAL = 'S_MONITOR_INTERVAL',
+  TRAY_BASE_URL = 'T_BASE_URL',
+  TRAY_MONITOR_INTERVAL = 'T_MONITOR_INTERVAL',
+  TRAY_KEY = 'T_KEY',
+  TRAY_SECRET = 'T_SECRET',
+}

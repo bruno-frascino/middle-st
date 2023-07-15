@@ -2,7 +2,7 @@ import config from 'config';
 import { IProduct } from '../model/db.model';
 import { Act, Scope, Product as TProduct, Variant } from '../model/tray.model';
 import { Condition, Product as SProduct, Sku } from '../model/sm.model';
-import { getCurrentUnixTime } from '../shared/utils/utils';
+import { EVarNames, getCurrentUnixTime } from '../shared/utils/utils';
 import {
   getAllNotifications,
   getSlimNotifications,
@@ -60,8 +60,8 @@ export async function initializeSystemConnections() {
 }
 
 export function initializeMonitors() {
-  const tMonitorInterval: number = config.get('tMonitorInterval'); // milliseconds
-  const sMonitorInterval: number = config.get('sMonitorInterval');
+  const tMonitorInterval: number = config.get(EVarNames.TRAY_MONITOR_INTERVAL); // milliseconds
+  const sMonitorInterval: number = config.get(EVarNames.SM_MONITOR_INTERVAL);
 
   try {
     // Start Tray monitor

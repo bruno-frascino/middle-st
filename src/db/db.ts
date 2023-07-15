@@ -3,12 +3,13 @@ import sqlite3 from 'sqlite3';
 import log from '../logger';
 import { Notification as ENotification, IProduct, IProductSku, Integration, TCredentials } from '../model/db.model';
 import { Notification } from '../model/tray.model';
+import { EVarNames } from '../shared/utils/utils';
 
 let db: sqlite3.Database;
 
 export function connect(callback?: Function) {
-  const dbName: string = config.get('dbName');
-  const verbose: boolean = config.get('verbose');
+  const dbName: string = config.get(EVarNames.DB_NAME);
+  const verbose: boolean = config.get(EVarNames.VERBOSE);
 
   const sqlite = verbose ? sqlite3.verbose() : sqlite3;
 
@@ -142,10 +143,10 @@ export async function deleteNotifications(ids: number[]) {
   return (await run(sql)) as Object;
 }
 
-export async function getTCredentials() {
-  const sql = `SELECT * FROM T_CREDENTIALS WHERE ID = 1`;
-  return (await getRow(sql)) as TCredentials;
-}
+// export async function getTCredentials() {
+//   const sql = `SELECT * FROM T_CREDENTIALS WHERE ID = 1`;
+//   return (await getRow(sql)) as TCredentials;
+// }
 
 export async function updateTConnectionDetails(integration: Integration) {
   const sql = `UPDATE INTEGRATION 

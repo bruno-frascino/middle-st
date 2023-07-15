@@ -5,11 +5,12 @@ import log from './logger';
 import * as lite from './db/db';
 import routes from './routes';
 import { initializeMonitors, initializeSystemConnections } from './services/middle.service';
+import { EVarNames } from './shared/utils/utils';
 
 // export NODE_ENV=development (default)
 // export NODE_ENV=production (when going to production)
-const port: number = config.get('port');
-const host: string = config.get('host');
+const port: number = config.get(EVarNames.PORT);
+const host: string = config.get(EVarNames.HOST);
 
 const app = express();
 app.use(express.json());

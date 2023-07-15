@@ -1,14 +1,9 @@
+import config from 'config';
 import { Act, Notification, Product, Scope, TrayToken, Variant } from '../model/tray.model';
 import log from '../logger';
-import {
-  getIntegrationByT,
-  getOrderedNotifications,
-  getTCredentials,
-  insertNotification,
-  updateTConnectionDetails,
-} from '../db/db';
+import { getIntegrationByT, getOrderedNotifications, insertNotification, updateTConnectionDetails } from '../db/db';
 import { Notification as ENotification, Integration } from '../model/db.model';
-import { convertStringToUnixTime, getCurrentUnixTime } from '../shared/utils/utils';
+import { EVarNames, convertStringToUnixTime, getCurrentUnixTime } from '../shared/utils/utils';
 import { getAuth, getProduct, getVariant, postAuth, putVariant } from '../resources/tray.api';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 
@@ -239,8 +234,8 @@ export async function getTrayVariant(variantId: number, integration: Integration
 
 // First access
 async function getNewAccessToken(code: string, storeUrl: string): Promise<TrayToken> {
-  const details = await getTCredentials(); // unique for this system
-  const { key, secret } = details;
+  const key: string = config.get(EVarNames.TRAY_KEY);
+  const secret: string = config.get(EVarNames.TRAY_SECRET);
 
   return postAuth({ domain: storeUrl, consumer_key: key, consumer_secret: secret, code });
 }

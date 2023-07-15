@@ -3,8 +3,9 @@ import log from '../logger';
 import { Product, Sku, SmToken } from '../model/sm.model';
 import { ErrorHandlerParams, fetchWrapper } from '../shared/api/fetchApi';
 import { ErrorCategory, HttpStatus, MiddleError } from '../shared/errors/MiddleError';
+import { EVarNames } from '../shared/utils/utils';
 
-const baseUrl = config.get('sBaseUrl');
+const baseUrl = config.get(EVarNames.SM_BASE_URL);
 
 export enum Embedded {
   GALLERY = 'GALLERY',
