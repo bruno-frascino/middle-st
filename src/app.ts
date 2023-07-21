@@ -2,7 +2,7 @@
 import express from 'express';
 import config from 'config';
 import log from './logger';
-import * as lite from './db/db';
+import * as mysql from './db/db';
 import routes from './routes';
 import { initializeMonitors, initializeSystemConnections } from './services/middle.service';
 import { EVarNames } from './shared/utils/utils';
@@ -17,7 +17,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // database connection and other initializations
-lite.connect(async () => {
+mysql.createConnectionPool(async () => {
   // Warm up of dependent systems connections
   await initializeSystemConnections();
 

@@ -1,51 +1,42 @@
-import mysql, { ResultSetHeader } from 'mysql2';
 import config from 'config';
+import sqlite3 from 'sqlite3';
 import log from '../logger';
-import { EVarNames } from '../shared/utils/utils';
 import { Notification as ENotification, IProduct, IProductSku, Integration, TCredentials } from '../model/db.model';
 import { Notification } from '../model/tray.model';
+import { EVarNames } from '../shared/utils/utils';
 
-let connectionPool: mysql.Pool;
+let db: sqlite3.Database;
 
-export function createConnectionPool(callback?: Function): void {
+export function connect(callback?: Function) {
   const dbName: string = config.get(EVarNames.DB_NAME);
-  const dbUser: string = config.get(EVarNames.DB_USER);
-  const dbPassword: string = config.get(EVarNames.DB_PASSWORD);
-  const dbHost: string = config.get(EVarNames.DB_HOST);
+  const verbose: boolean = config.get(EVarNames.VERBOSE);
 
-  const dbOptions = {
-    host: dbHost,
-    user: dbUser,
-    password: dbPassword,
-    database: dbName,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-  };
-  try {
-    connectionPool = mysql.createPool(dbOptions);
+  const sqlite = verbose ? sqlite3.verbose() : sqlite3;
 
-    log.info(`Connected to ${dbName} MYSQL database.`);
-    callback && callback();
-  } catch (err) {
-    log.error(`Error creating connection pool: ${err}`);
-  }
+  // TODO - database path when in dist folder
+  db = new sqlite.Database(`./${dbName}`, sqlite3.OPEN_READWRITE, (err) => {
+    if (err) {
+      log.error(err.message);
+    } else {
+      log.info(`Connected to ${dbName} database.`);
+      callback && callback();
+    }
+  });
 }
 
-export function getConnectionFromPool(): mysql.Pool {
-  if (!connectionPool) {
-    createConnectionPool(getConnectionFromPool);
+export function getInstance() {
+  if (!db) {
+    connect(getInstance);
   }
-
-  return connectionPool;
+  return db;
 }
 
-export function query(sql: string, params: any[] = []) {
-  log.debug(`Running query: ${sql} with params: ${params}`);
+export function getRow(sql: string, params: any[] = []) {
+  log.debug(`Running get sql: ${sql} with params: ${params}`);
   return new Promise((resolve, reject) => {
-    getConnectionFromPool().query(sql, params, (err, result) => {
+    getInstance().get(sql, params, (err, result) => {
       if (err) {
-        log.error(`Error running query: ${sql} with error ${err}`);
+        log.error(`Error running get sql: ${sql} with error ${err}`);
         reject(err);
       } else {
         resolve(result);
@@ -54,28 +45,30 @@ export function query(sql: string, params: any[] = []) {
   });
 }
 
-// retrieveById(id: number): Promise<T> {
-//   return new Promise((resolve, reject) => {
-//     connection.query(
-//       `SELECT * FROM ${T.name} WHERE id = ?`,
-//       [id],
-//       (err, res) => {
-//         if (err) reject(err);
-//         else resolve(res?.[0]);
-//       }
-//     );
-//   });
-// }
-
 export function run(sql: string, params: {} = {}) {
-  log.debug(`Running: ${sql} with params: ${JSON.stringify(params)}`);
+  log.debug(`Running sql: ${sql} with params: ${JSON.stringify(params)}`);
   return new Promise((resolve, reject) => {
-    getConnectionFromPool().query<ResultSetHeader>(sql, params, (err, res) => {
+    // eslint-disable-next-line func-names
+    getInstance().run(sql, params, function (err) {
       if (err) {
-        log.error(`Error running: ${sql} with error ${err}`);
+        log.error(`Error running sql: ${sql} with error ${err}`);
         reject(err);
       } else {
-        resolve({ id: res.insertId });
+        resolve({ id: this.lastID });
+      }
+    });
+  });
+}
+
+export function all(sql: string, params: {} = {}) {
+  log.debug(`Running sql: ${sql} with params: ${JSON.stringify(params)}`);
+  return new Promise((resolve, reject) => {
+    getInstance().all(sql, params, (err, rows) => {
+      if (err) {
+        log.error(`Error running sql: ${sql} with error ${err}`);
+        reject(err);
+      } else {
+        resolve(rows);
       }
     });
   });
@@ -88,7 +81,7 @@ export async function getIntegrationByT(tSellerId: number, tAppCode: string) {
               AND sellerTStoreCode = ?
               AND active = 1`;
 
-  return (await query(sql, [tSellerId, tAppCode])) as Integration;
+  return (await getRow(sql, [tSellerId, tAppCode])) as Integration;
 }
 
 export async function getIntegrationById(id: number) {
@@ -97,7 +90,7 @@ export async function getIntegrationById(id: number) {
               WHERE id = ${id}
               AND active = 1`;
 
-  return (await query(sql)) as Integration;
+  return (await getRow(sql)) as Integration;
 }
 
 export async function getAllIntegrations() {
@@ -106,7 +99,7 @@ export async function getAllIntegrations() {
               WHERE active = 1
               ORDER BY ID`;
 
-  return (await query(sql)) as Integration[];
+  return (await all(sql)) as Integration[];
 }
 
 export async function getAllIProducts() {
@@ -115,7 +108,7 @@ export async function getAllIProducts() {
               WHERE state <> D
               ORDER BY ID`;
 
-  return (await query(sql)) as IProduct[];
+  return (await all(sql)) as IProduct[];
 }
 
 export async function insertNotification(notification: Notification, integrationId: number) {
@@ -139,7 +132,7 @@ export async function insertNotification(notification: Notification, integration
 export async function getOrderedNotifications() {
   const sql = `SELECT * FROM NOTIFICATION ORDER BY sellerId, scopeName, scopeId, createDate`;
 
-  return (await query(sql)) as ENotification[];
+  return (await all(sql)) as ENotification[];
 }
 
 export async function deleteNotifications(ids: number[]) {
@@ -148,6 +141,11 @@ export async function deleteNotifications(ids: number[]) {
 
   return (await run(sql)) as Object;
 }
+
+// export async function getTCredentials() {
+//   const sql = `SELECT * FROM T_CREDENTIALS WHERE ID = 1`;
+//   return (await getRow(sql)) as TCredentials;
+// }
 
 export async function updateTConnectionDetails(integration: Integration) {
   const sql = `UPDATE INTEGRATION 
@@ -207,7 +205,7 @@ export async function getIProductByT({ integrationId, tProductId }: { integratio
   AND tProductId = ${tProductId}
   AND state <> 'D';`;
 
-  return (await query(sql)) as IProduct;
+  return (await getRow(sql)) as IProduct;
 }
 
 export async function getIProductsByIntegration(integrationId: number) {
@@ -216,7 +214,7 @@ export async function getIProductsByIntegration(integrationId: number) {
   WHERE integrationId = ${integrationId}
   AND state <> 'D';`;
 
-  return (await query(sql)) as IProduct[];
+  return (await getRow(sql)) as IProduct[];
 }
 
 // states: [C, U, D]
@@ -255,6 +253,16 @@ export async function createIProductSku({
   })) as IProductSku;
 }
 
+// export async function getIProductSkuByT({ iProductId, tVariantId }: { iProductId: number; tVariantId: number }) {
+//   const sql = `SELECT *
+//   FROM IPRODUCT_SKU
+//   WHERE iProductId = ${iProductId}
+//   AND tVariantId = ${tVariantId}
+//   AND state <> 'D';`;
+
+//   return (await getRow(sql)) as IProductSku;
+// }
+
 export async function getIProductSkuByT({
   integrationId,
   tProductId,
@@ -280,7 +288,7 @@ export async function getIProductSkuByT({
   AND IPRODUCT_SKU.tVariantId = ${tVariantId}
   AND IPRODUCT_SKU.state <> 'D';`;
 
-  return (await query(sql)) as IProductSku;
+  return (await getRow(sql)) as IProductSku;
 }
 
 // states: [C, U, D]
@@ -337,7 +345,7 @@ export async function getIProductSkuByVariant({ tVariantId }: { tVariantId: numb
   WHERE tVariantId = ${tVariantId}
   AND state <> 'D';`;
 
-  return (await query(sql)) as IProductSku;
+  return (await getRow(sql)) as IProductSku;
 }
 
 export async function getIProductSkusByIProduct(iProductId: number) {
@@ -346,7 +354,7 @@ export async function getIProductSkusByIProduct(iProductId: number) {
   WHERE iProductId = ${iProductId}
   AND state <> 'D';`;
 
-  return (await query(sql)) as IProductSku;
+  return (await getRow(sql)) as IProductSku;
 }
 
 export async function getIProductSkusByIntegration(integrationId: number) {
@@ -368,5 +376,5 @@ export async function getIProductSkusByIntegration(integrationId: number) {
     AND INTEGRATION.id = ${integrationId}
   ;`;
 
-  return (await query(sql)) as IProductSku;
+  return (await getRow(sql)) as IProductSku;
 }
