@@ -15,6 +15,12 @@ const host: string = config.get(EVarNames.HOST);
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', ' http://localhost:3000');
+  // Allow content-type and other headers
+  res.header('Access-Control-Allow-Headers', 'content-type');
+  next();
+});
 
 // database connection and other initializations
 mysql.createConnectionPool(async () => {
