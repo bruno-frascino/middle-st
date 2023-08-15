@@ -1,24 +1,21 @@
 export interface Integration {
   id: number;
   sellerName?: string;
-  sellerSId: number;
+  sellerSId?: number;
   sellerSKey?: string;
   sellerSSecret?: string;
-  sellerSStoreCode?: string;
-  sellerSStoreUrl?: string;
   sellerSAccessToken?: string;
   sellerSRefreshToken?: string;
   sellerSAccessExpirationDate?: number; // stored in Unix time
   sellerSRefreshExpirationDate?: number;
-  sellerTId: number;
-  sellerTKey?: string;
-  sellerTSecret?: string;
-  sellerTStoreCode?: string;
+  sellerTStoreCode: string;
+  sellerTStoreAccessCode?: string;
   sellerTStoreUrl?: string;
   sellerTAccessToken?: string;
   sellerTRefreshToken?: string;
   sellerTAccessExpirationDate?: number;
   sellerTRefreshExpirationDate?: number;
+  createDate: Date;
   active: number;
 }
 export interface Notification {

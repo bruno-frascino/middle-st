@@ -67,10 +67,10 @@ export function query(sql: string, params: any[] = []) {
 //   });
 // }
 
-export function run(sql: string, params: {} = {}) {
-  log.debug(`Running: ${sql} with params: ${JSON.stringify(params)}`);
+export function run(sql: string, values: any[] = []) {
+  log.debug(`Running: ${sql} with values: ${JSON.stringify(values)}`);
   return new Promise((resolve, reject) => {
-    getConnectionFromPool().query<ResultSetHeader>(sql, params, (err, res) => {
+    getConnectionFromPool().query<ResultSetHeader>(sql, values, (err, res) => {
       if (err) {
         log.error(`Error running: ${sql} with error ${err}`);
         reject(err);
@@ -118,22 +118,32 @@ export async function getAllIProducts() {
   return (await query(sql)) as IProduct[];
 }
 
-export async function insertNotification(notification: Notification, integrationId: number) {
-  const sql = `INSERT INTO NOTIFICATION(
-              id, scopeName, act, scopeId, sellerId, appCode, storeUrl, integrationId, createDate, complete) 
+export async function insertIntegration({ storeCode }: { storeCode: string }) {
+  const sql = `INSERT INTO INTEGRATION(
+              sellerTStoreCode, createDate, active) 
               VALUES(
-              null, $scopeName, $act, $scopeId, $sellerId, $appCode, $storeUrl, $integrationId, strftime('%s','now'), 0
+              ?, now(), 0
             );`;
 
-  return (await run(sql, {
-    $scopeName: notification.scope_name,
-    $act: notification.act,
-    $scopeId: notification.scope_id,
-    $sellerId: notification.seller_id,
-    $appCode: notification.app_code,
-    $storeUrl: notification.url_notification,
-    $integrationId: integrationId,
-  })) as Object;
+  return (await run(sql, [storeCode])) as Integration;
+}
+
+export async function insertNotification(notification: Notification, integrationId: number) {
+  const sql = `INSERT INTO NOTIFICATION(
+                scopeName, act, scopeId, sellerId, appCode, storeUrl, integrationId, createDate, complete) 
+              VALUES(
+                ?, ?, ?, ?, ?, ?, ?, now(), 0
+            );`;
+
+  return (await run(sql, [
+    notification.scope_name,
+    notification.act,
+    notification.scope_id,
+    notification.seller_id,
+    notification.app_code,
+    notification.url_notification,
+    integrationId,
+  ])) as Object;
 }
 
 export async function getOrderedNotifications() {
@@ -152,31 +162,35 @@ export async function deleteNotifications(ids: number[]) {
 export async function updateTConnectionDetails(integration: Integration) {
   const sql = `UPDATE INTEGRATION 
   SET 
-    sellerTAccessToken = $accessToken,
-    sellerTRefreshToken = $refreshToken,
-    sellerTAccessExpirationDate = $accessExpirationDate,
-    sellerTRefreshExpirationDate = $refreshExpirationDate
-  WHERE ID = $id`;
-  return (await run(sql, {
-    $id: integration.id,
-    $accessToken: integration.sellerTAccessToken,
-    $refreshToken: integration.sellerTRefreshToken,
-    $accessExpirationDate: integration.sellerTAccessExpirationDate,
-    $refreshExpirationDate: integration.sellerTRefreshExpirationDate,
-  })) as Object;
+    sellerTAccessToken = ?,
+    sellerTRefreshToken = ?,
+    sellerTAccessExpirationDate = ?,
+    sellerTRefreshExpirationDate = ?
+  WHERE ID = ?`;
+
+  const { sellerTAccessToken, sellerTRefreshToken, sellerTAccessExpirationDate, sellerTRefreshExpirationDate, id } =
+    integration;
+  return (await run(sql, [
+    sellerTAccessToken,
+    sellerTRefreshToken,
+    sellerTAccessExpirationDate,
+    sellerTRefreshExpirationDate,
+    id,
+  ])) as Object;
 }
 
 export async function updateSConnectionDetails(integration: Integration) {
   const sql = `UPDATE INTEGRATION 
   SET 
-    sellerSAccessToken = $accessToken,
-    sellerSAccessExpirationDate = $accessExpirationDate
-  WHERE ID = $id`;
-  return (await run(sql, {
-    $id: integration.id,
-    $accessToken: integration.sellerSAccessToken,
-    $accessExpirationDate: integration.sellerSAccessExpirationDate,
-  })) as Object;
+    sellerSAccessToken = ?,
+    sellerSAccessExpirationDate = ?
+  WHERE ID = ?`;
+
+  return (await run(sql, [
+    integration.sellerSAccessToken,
+    integration.sellerSAccessExpirationDate,
+    integration.id,
+  ])) as Object;
 }
 
 export async function createIProduct({
@@ -189,15 +203,11 @@ export async function createIProduct({
   sProductId: number;
 }) {
   const sql = `INSERT INTO IPRODUCT(
-    id, integrationId, tProductId, sProductId, createDate, state) 
+    integrationId, tProductId, sProductId, createDate, state) 
     VALUES(
-    null, $integrationId, $tProductId, $sProductId, strftime('%s','now'), 'C'
+    ?, ?, ?, now(), 'C'
   );`;
-  return (await run(sql, {
-    $integrationId: integrationId,
-    $tProductId: tProductId,
-    $sProductId: sProductId,
-  })) as IProduct;
+  return (await run(sql, [integrationId, tProductId, sProductId])) as IProduct;
 }
 
 export async function getIProductByT({ integrationId, tProductId }: { integrationId: number; tProductId: number }) {
@@ -223,12 +233,10 @@ export async function getIProductsByIntegration(integrationId: number) {
 export async function updateIProduct({ iProductId, isDeleteState }: { iProductId: number; isDeleteState: boolean }) {
   const sql = `UPDATE IPRODUCT 
   SET 
-    updateDate = strftime('%s','now'),
+    updateDate = now(),
     state = ${isDeleteState ? 'D' : 'U'}
-  WHERE ID = $id`;
-  return (await run(sql, {
-    $id: iProductId,
-  })) as Object;
+  WHERE ID = ${iProductId}`;
+  return (await run(sql)) as Object;
 }
 
 export async function createIProductSku({
@@ -243,16 +251,11 @@ export async function createIProductSku({
   tStock: number;
 }) {
   const sql = `INSERT INTO IPRODUCT_SKU(
-    id, iProductId, sSkuId, tVariantId, tStock, createDate, state) 
+    iProductId, sSkuId, tVariantId, tStock, createDate, state) 
     VALUES(
-    null, $iProductId, $sSkuId, $tVariantId, $tStock, strftime('%s','now'), 'C'
+    ?, ?, ?, ?, now(), 'C'
   );`;
-  return (await run(sql, {
-    $iProductId: iProductId,
-    $sSkuId: sSkuId,
-    $tVariantId: tVariantId,
-    $tStock: tStock,
-  })) as IProductSku;
+  return (await run(sql, [iProductId, sSkuId, tVariantId, tStock])) as IProductSku;
 }
 
 export async function getIProductSkuByT({
@@ -295,13 +298,11 @@ export async function updateIProductSku({
 }) {
   const sql = `UPDATE IPRODUCT_SKU
   SET 
-    updateDate = strftime('%s','now'),
+    updateDate = now(),
     state = ${isDeleteState ? 'D' : 'U'},
     tStock: ${tStock}
-  WHERE ID = $id`;
-  return (await run(sql, {
-    $id: iProductSkuId,
-  })) as Object;
+  WHERE ID = ${iProductSkuId}`;
+  return (await run(sql)) as Object;
 }
 
 // states: [C, U, D]
@@ -317,18 +318,16 @@ export async function updateIProductSkuByIProduct({
   const sql = tStock
     ? `UPDATE IPRODUCT_SKU
   SET 
-    updateDate = strftime('%s','now'),
+    updateDate = now(),
     state = ${isDeleteState ? 'D' : 'U'},
     tStock: ${tStock}
-  WHERE ID = $id`
+  WHERE ID = ${iProductId}`
     : `UPDATE IPRODUCT_SKU
   SET 
-    updateDate = strftime('%s','now'),
+    updateDate = now(),
     state = ${isDeleteState ? 'D' : 'U'},
-  WHERE ID = $id`;
-  return (await run(sql, {
-    $id: iProductId,
-  })) as Object;
+  WHERE ID = ${iProductId}`;
+  return (await run(sql)) as Object;
 }
 
 export async function getIProductSkuByVariant({ tVariantId }: { tVariantId: number }) {

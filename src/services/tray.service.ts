@@ -247,8 +247,8 @@ async function getRefreshedToken(refreshToken: string, storeUrl: string): Promis
 
 export async function provideTrayAccessToken(integration: Integration): Promise<string> {
   // Required connection details
-  const { id, sellerTId, sellerTStoreCode, sellerTStoreUrl, sellerTRefreshToken, sellerTAccessToken } = integration;
-  if (!sellerTId || !sellerTStoreCode || !sellerTStoreUrl) {
+  const { id, sellerTStoreCode, sellerTStoreUrl, sellerTRefreshToken, sellerTAccessToken } = integration;
+  if (!sellerTStoreCode || !sellerTStoreUrl) {
     const errorMessage = `Integration record: ${id} missing required information`;
     log.error(errorMessage);
     throw new MiddleError(errorMessage, ErrorCategory.BUS);
