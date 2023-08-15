@@ -7,6 +7,10 @@ import { EVarNames, convertStringToUnixTime, getCurrentUnixTime } from '../share
 import { getAuth, getProduct, getVariant, postAuth, putVariant } from '../resources/tray.api';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 
+export async function getConsumerKey() {
+  return config.get(EVarNames.TRAY_SECRET);
+}
+
 /**
  *
  * @param notification

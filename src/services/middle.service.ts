@@ -31,10 +31,17 @@ import {
   getIProductSkuByVariant,
   getIProductSkusByIntegration,
   getIntegrationById,
+  insertIntegration,
   updateIProduct,
   updateIProductSku,
   updateIProductSkuByIProduct,
 } from '../db/db';
+
+export async function createIntegration({ storeCode }: { storeCode: string }) {
+  const integration = await insertIntegration({ storeCode });
+  log.info(`Integration record for store code ${storeCode} has been created successfully`);
+  return integration;
+}
 
 /**
  *  This Service understands both systems
