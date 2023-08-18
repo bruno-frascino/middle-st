@@ -1,5 +1,9 @@
 import { Express, Request, Response } from 'express';
-import { initiateIntegrationHandler, notificationHandler, trayIntegrationHandler } from './controller/web.controller';
+import {
+  finaliseIntegrationHandler,
+  initiateIntegrationHandler,
+  notificationHandler,
+} from './controller/web.controller';
 
 export default function (app: Express) {
   app.get('/', (req: Request, res: Response) => res.send('<h2>Express + TypeScript Server + Nodemon</h2>'));
@@ -15,5 +19,5 @@ export default function (app: Express) {
   app.post('/api/integration', initiateIntegrationHandler);
 
   // Integration 2nd step
-  app.post('/api/integration/tray', trayIntegrationHandler);
+  app.put('/api/integration', finaliseIntegrationHandler);
 }
