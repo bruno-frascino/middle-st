@@ -1,5 +1,5 @@
 import config from 'config';
-import { IProduct } from '../model/db.model';
+import { IProduct, Integration } from '../model/db.model';
 import { Act, Scope, Product as TProduct, Variant } from '../model/tray.model';
 import { Condition, Product as SProduct, Sku } from '../model/sm.model';
 import { EVarNames, getCurrentUnixTime } from '../shared/utils/utils';
@@ -35,11 +35,18 @@ import {
   updateIProduct,
   updateIProductSku,
   updateIProductSkuByIProduct,
+  updateInitialIntegration,
 } from '../db/db';
 
 export async function createIntegration({ storeCode }: { storeCode: string }) {
   const integration = await insertIntegration({ storeCode });
   log.info(`Integration record for store code ${storeCode} has been created successfully`);
+  return integration;
+}
+
+export async function updateIntegrationDetails(integrationParam: Integration) {
+  const integration = await updateInitialIntegration(integrationParam);
+  log.info(`Integration for store code ${integration.sellerTStoreCode} has been updated with details successfully`);
   return integration;
 }
 

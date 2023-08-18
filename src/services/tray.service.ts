@@ -8,7 +8,8 @@ import { getAuth, getProduct, getVariant, postAuth, putVariant } from '../resour
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 
 export async function getConsumerKey() {
-  return config.get(EVarNames.TRAY_SECRET);
+  const consumerKey = config.get(EVarNames.TRAY_KEY);
+  return consumerKey;
 }
 
 /**

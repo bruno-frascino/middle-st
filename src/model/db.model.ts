@@ -63,3 +63,14 @@ export interface IProductSku {
   updateDate?: number;
   state: string;
 }
+
+export function isValidIntegration(object: any) {
+  return !!(
+    object.sellerName &&
+    object.sellerSKey &&
+    object.sellerSSecret &&
+    object.sellerTStoreCode &&
+    object.sellerTStoreAccessCode &&
+    object.sellerTStoreUrl
+  );
+}

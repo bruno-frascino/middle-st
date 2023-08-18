@@ -128,6 +128,29 @@ export async function insertIntegration({ storeCode }: { storeCode: string }) {
   return (await run(sql, [storeCode])) as Integration;
 }
 
+export async function updateInitialIntegration(integration: Integration) {
+  const { sellerName, sellerSKey, sellerSSecret, sellerTStoreAccessCode, sellerTStoreUrl, sellerTStoreCode } =
+    integration;
+  const sql = `UPDATE INTEGRATION 
+  SET 
+    sellerName = ?,
+    sellerSKey = ?,
+    sellerSSecret = ?,
+    sellerTStoreAccessCode = ?,
+    sellerTStoreUrl = ?,
+    active = 1
+  WHERE sellerTStoreCode = ?`;
+
+  return (await run(sql, [
+    sellerName,
+    sellerSKey,
+    sellerSSecret,
+    sellerTStoreAccessCode,
+    sellerTStoreUrl,
+    sellerTStoreCode,
+  ])) as Integration;
+}
+
 export async function insertNotification(notification: Notification, integrationId: number) {
   const sql = `INSERT INTO NOTIFICATION(
                 scopeName, act, scopeId, sellerId, appCode, storeUrl, integrationId, createDate, complete) 
