@@ -18,7 +18,8 @@ app.use(express.urlencoded({ extended: false }));
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', ' http://localhost:3000');
   // Allow content-type and other headers
-  res.header('Access-Control-Allow-Headers', 'content-type');
+  res.setHeader('Access-Control-Allow-Headers', 'content-type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, HEAD');
   next();
 });
 
