@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop */
 import config from 'config';
 import { IProduct, Integration } from '../model/db.model';
 import { Act, Scope, Product as TProduct, Variant } from '../model/tray.model';
@@ -321,7 +322,9 @@ export async function monitorSmChanges() {
   }
 
   // Check Products per seller
-  integrations.forEach(async (integration) => {
+  // integrations.forEach(async (integration) => {
+  // eslint-disable-next-line no-restricted-syntax
+  for (const integration of integrations) {
     // GET IPRODUCTS for this seller
     // const iProducts = await getIProductsByIntegration(integration.id);
     // iProducts.forEach(async (iProduct) => {
@@ -332,33 +335,36 @@ export async function monitorSmChanges() {
 
     // GET integrated SKUS
     const iProductSkus = await getIProductSkusByIntegration(integration.id);
-    if (iProductSkus) {
-      // Get sku
-      const sSku = await getSmSku({ skuId: iProductSkus.sSkuId, integration });
-      // Get sku from Sm and compare stock to the integration table
-      // Get the latest from Tray if SM stock is already different from the integration table
-      if (sSku.stock !== iProductSkus.tStock) {
-        // double check there's nothing in pipeline to be updated
-        // TODO: Check what to do in case both market places sell the last item
-        // TODO: T Product and TVariant have stock fields, which one to look at?
-        const tVariant = await getTrayVariant(iProductSkus.iProductId, integration);
-        if (sSku.stock <= tVariant.Variant.stock) {
-          // UPDATE STOCK IN TRAY
-          tVariant.Variant.stock = sSku.stock;
-          try {
-            await updateTrayVariant(tVariant, integration);
-            log.info(
-              `Stock updated in Tray for integration: ${integration.id}, sSku: ${sSku.id}, iProduct: ${iProductSkus.iProductId} and iProductSku ${iProductSkus.id}`,
-            );
-          } catch (error) {
-            log.error(
-              `Failed to update stock in Tray for integration: ${integration.id}, sSku: ${sSku.id}, iProduct: ${iProductSkus.iProductId} and iProductSku ${iProductSkus.id}`,
-            );
+    if (iProductSkus && iProductSkus.length > 0) {
+      // eslint-disable-next-line no-restricted-syntax
+      for (const iProductSku of iProductSkus) {
+        // Get sku
+        const sSku = await getSmSku({ skuId: iProductSku.sSkuId, integration });
+        // Get sku from Sm and compare stock to the integration table
+        // Get the latest from Tray if SM stock is already different from the integration table
+        if (sSku.stock !== iProductSku.tStock) {
+          // double check there's nothing in pipeline to be updated
+          // TODO: Check what to do in case both market places sell the last item
+          // TODO: T Product and TVariant have stock fields, which one to look at?
+          const tVariant = await getTrayVariant(iProductSku.iProductId, integration);
+          if (sSku.stock <= tVariant.Variant.stock) {
+            // UPDATE STOCK IN TRAY
+            tVariant.Variant.stock = sSku.stock;
+            try {
+              await updateTrayVariant(tVariant, integration);
+              log.info(
+                `Stock updated in Tray for integration: ${integration.id}, sSku: ${sSku.id}, iProduct: ${iProductSku.iProductId} and iProductSku ${iProductSku.id}`,
+              );
+            } catch (error) {
+              log.error(
+                `Failed to update stock in Tray for integration: ${integration.id}, sSku: ${sSku.id}, iProduct: ${iProductSku.iProductId} and iProductSku ${iProductSku.id}`,
+              );
+            }
           }
         }
       }
     }
-  });
+  }
   log.info(`SM monitor finished in: ${Date.now() - start} milliseconds`);
 }
 
