@@ -83,7 +83,7 @@ export function run(sql: string, values: any[] = []) {
 
 export async function getIntegrationByT(tSellerId: number, tAppCode: string) {
   const sql = `SELECT * 
-              FROM INTEGRATION 
+              FROM Integration 
               WHERE sellerTId = ? 
               AND sellerTStoreCode = ?
               AND active = 1`;
@@ -93,7 +93,7 @@ export async function getIntegrationByT(tSellerId: number, tAppCode: string) {
 
 export async function getIntegrationById(id: number) {
   const sql = `SELECT * 
-              FROM INTEGRATION 
+              FROM Integration 
               WHERE id = ${id}
               AND active = 1`;
 
@@ -102,7 +102,7 @@ export async function getIntegrationById(id: number) {
 
 export async function getAllIntegrations() {
   const sql = `SELECT * 
-              FROM INTEGRATION 
+              FROM Integration 
               WHERE active = 1
               ORDER BY ID`;
 
@@ -111,7 +111,7 @@ export async function getAllIntegrations() {
 
 export async function getAllIProducts() {
   const sql = `SELECT * 
-              FROM IPRODUCT 
+              FROM IProduct 
               WHERE state <> D
               ORDER BY ID`;
 
@@ -119,7 +119,7 @@ export async function getAllIProducts() {
 }
 
 export async function insertIntegration({ storeCode }: { storeCode: string }) {
-  const sql = `INSERT INTO INTEGRATION(
+  const sql = `INSERT INTO Integration(
               sellerTStoreCode, createDate, active) 
               VALUES(
               ?, now(), 0
@@ -131,7 +131,7 @@ export async function insertIntegration({ storeCode }: { storeCode: string }) {
 export async function updateInitialIntegration(integration: Integration) {
   const { sellerName, sellerSKey, sellerSSecret, sellerTStoreAccessCode, sellerTStoreUrl, sellerTStoreCode } =
     integration;
-  const sql = `UPDATE INTEGRATION 
+  const sql = `UPDATE Integration 
   SET 
     sellerName = ?,
     sellerSKey = ?,
@@ -152,7 +152,7 @@ export async function updateInitialIntegration(integration: Integration) {
 }
 
 export async function insertNotification(notification: Notification, integrationId: number) {
-  const sql = `INSERT INTO NOTIFICATION(
+  const sql = `INSERT INTO Notification(
                 scopeName, act, scopeId, sellerId, appCode, storeUrl, integrationId, createDate, complete) 
               VALUES(
                 ?, ?, ?, ?, ?, ?, ?, now(), 0
@@ -170,20 +170,20 @@ export async function insertNotification(notification: Notification, integration
 }
 
 export async function getOrderedNotifications() {
-  const sql = `SELECT * FROM NOTIFICATION ORDER BY sellerId, scopeName, scopeId, createDate`;
+  const sql = `SELECT * FROM Notification ORDER BY sellerId, scopeName, scopeId, createDate`;
 
   return (await query(sql)) as ENotification[];
 }
 
 export async function deleteNotifications(ids: number[]) {
   const params = ids.join(',');
-  const sql = `DELETE FROM NOTIFICATION WHERE id IN(${params})`;
+  const sql = `DELETE FROM Notification WHERE id IN(${params})`;
 
   return (await run(sql)) as Object;
 }
 
 export async function updateTConnectionDetails(integration: Integration) {
-  const sql = `UPDATE INTEGRATION 
+  const sql = `UPDATE Integration 
   SET 
     sellerTAccessToken = ?,
     sellerTRefreshToken = ?,
@@ -203,7 +203,7 @@ export async function updateTConnectionDetails(integration: Integration) {
 }
 
 export async function updateSConnectionDetails(integration: Integration) {
-  const sql = `UPDATE INTEGRATION 
+  const sql = `UPDATE Integration 
   SET 
     sellerSAccessToken = ?,
     sellerSAccessExpirationDate = ?
@@ -225,7 +225,7 @@ export async function createIProduct({
   tProductId: number;
   sProductId: number;
 }) {
-  const sql = `INSERT INTO IPRODUCT(
+  const sql = `INSERT INTO IProduct(
     integrationId, tProductId, sProductId, createDate, state) 
     VALUES(
     ?, ?, ?, now(), 'C'
@@ -235,7 +235,7 @@ export async function createIProduct({
 
 export async function getIProductByT({ integrationId, tProductId }: { integrationId: number; tProductId: number }) {
   const sql = `SELECT * 
-  FROM IPRODUCT 
+  FROM IProduct 
   WHERE integrationId = ${integrationId}
   AND tProductId = ${tProductId}
   AND state <> 'D';`;
@@ -245,7 +245,7 @@ export async function getIProductByT({ integrationId, tProductId }: { integratio
 
 export async function getIProductsByIntegration(integrationId: number) {
   const sql = `SELECT * 
-  FROM IPRODUCT 
+  FROM IProduct 
   WHERE integrationId = ${integrationId}
   AND state <> 'D';`;
 
@@ -254,7 +254,7 @@ export async function getIProductsByIntegration(integrationId: number) {
 
 // states: [C, U, D]
 export async function updateIProduct({ iProductId, isDeleteState }: { iProductId: number; isDeleteState: boolean }) {
-  const sql = `UPDATE IPRODUCT 
+  const sql = `UPDATE IProduct 
   SET 
     updateDate = now(),
     state = ${isDeleteState ? 'D' : 'U'}
@@ -273,7 +273,7 @@ export async function createIProductSku({
   tVariantId: number;
   tStock: number;
 }) {
-  const sql = `INSERT INTO IPRODUCT_SKU(
+  const sql = `INSERT INTO IProduct_SKU(
     iProductId, sSkuId, tVariantId, tStock, createDate, state) 
     VALUES(
     ?, ?, ?, ?, now(), 'C'
@@ -290,21 +290,21 @@ export async function getIProductSkuByT({
   tProductId: number;
   tVariantId: number;
 }) {
-  const sql = `SELECT IPRODUCT_SKU.id, 
-    IPRODUCT_SKU.id,  
-    IPRODUCT_SKU.iProductId,
-    IPRODUCT_SKU.sSkuId, 
-    IPRODUCT_SKU.tVariantId, 
-    IPRODUCT_SKU.createDate, 
-    IPRODUCT_SKU.updateDate, 
-    IPRODUCT_SKU.state
-  FROM IPRODUCT_SKU 
-  INNER JOIN IPRODUCT ON IPRODUCT_SKU.iProductId = IPRODUCT.id
-  WHERE IPRODUCT.tProductId = ${tProductId}
-  AND IPRODUCT.integrationId = ${integrationId}
-  AND IPRODUCT.state <> 'D'
-  AND IPRODUCT_SKU.tVariantId = ${tVariantId}
-  AND IPRODUCT_SKU.state <> 'D';`;
+  const sql = `SELECT IProduct_SKU.id, 
+    IProduct_SKU.id,  
+    IProduct_SKU.iProductId,
+    IProduct_SKU.sSkuId, 
+    IProduct_SKU.tVariantId, 
+    IProduct_SKU.createDate, 
+    IProduct_SKU.updateDate, 
+    IProduct_SKU.state
+  FROM IProduct_SKU 
+  INNER JOIN IProduct ON IProduct_SKU.iProductId = IProduct.id
+  WHERE IProduct.tProductId = ${tProductId}
+  AND IProduct.integrationId = ${integrationId}
+  AND IProduct.state <> 'D'
+  AND IProduct_SKU.tVariantId = ${tVariantId}
+  AND IProduct_SKU.state <> 'D';`;
 
   return (await query(sql)) as IProductSku;
 }
@@ -319,7 +319,7 @@ export async function updateIProductSku({
   isDeleteState: boolean;
   tStock: number;
 }) {
-  const sql = `UPDATE IPRODUCT_SKU
+  const sql = `UPDATE IProduct_SKU
   SET 
     updateDate = now(),
     state = ${isDeleteState ? 'D' : 'U'},
@@ -339,13 +339,13 @@ export async function updateIProductSkuByIProduct({
   tStock?: number;
 }) {
   const sql = tStock
-    ? `UPDATE IPRODUCT_SKU
+    ? `UPDATE IProduct_SKU
   SET 
     updateDate = now(),
     state = ${isDeleteState ? 'D' : 'U'},
     tStock: ${tStock}
   WHERE ID = ${iProductId}`
-    : `UPDATE IPRODUCT_SKU
+    : `UPDATE IProduct_SKU
   SET 
     updateDate = now(),
     state = ${isDeleteState ? 'D' : 'U'},
@@ -355,7 +355,7 @@ export async function updateIProductSkuByIProduct({
 
 export async function getIProductSkuByVariant({ tVariantId }: { tVariantId: number }) {
   const sql = `SELECT * 
-  FROM IPRODUCT_SKU
+  FROM IProduct_SKU
   WHERE tVariantId = ${tVariantId}
   AND state <> 'D';`;
 
@@ -364,7 +364,7 @@ export async function getIProductSkuByVariant({ tVariantId }: { tVariantId: numb
 
 export async function getIProductSkusByIProduct(iProductId: number) {
   const sql = `SELECT * 
-  FROM IPRODUCT_SKU
+  FROM IProduct_SKU
   WHERE iProductId = ${iProductId}
   AND state <> 'D';`;
 
@@ -373,22 +373,22 @@ export async function getIProductSkusByIProduct(iProductId: number) {
 
 export async function getIProductSkusByIntegration(integrationId: number) {
   const sql = `SELECT 
-    IPRODUCT_SKU.id,
-    IPRODUCT_SKU.iProductId,
-    IPRODUCT_SKU.sSKuId,
-    IPRODUCT_SKU.tVariantId,
-    IPRODUCT_SKU.tStock,
-    IPRODUCT_SKU.createDate,
-    IPRODUCT_SKU.updateDate,
-    IPRODUCT_SKU.state
-  FROM IPRODUCT_SKU, IPRODUCT, INTEGRATION
-  WHERE IPRODUCT_SKU.iProductId = IPRODUCT.id
-    AND IPRODUCT_SKU.state <> 'D'
-    AND IPRODUCT.state <> 'D'
-    AND IPRODUCT.integrationId = INTEGRATION.id
-    AND INTEGRATION.active = 1
-    AND INTEGRATION.id = ${integrationId}
+    IProduct_SKU.id,
+    IProduct_SKU.iProductId,
+    IProduct_SKU.sSKuId,
+    IProduct_SKU.tVariantId,
+    IProduct_SKU.tStock,
+    IProduct_SKU.createDate,
+    IProduct_SKU.updateDate,
+    IProduct_SKU.state
+  FROM IProduct_SKU, IProduct, Integration
+  WHERE IProduct_SKU.iProductId = IProduct.id
+    AND IProduct_SKU.state <> 'D'
+    AND IProduct.state <> 'D'
+    AND IProduct.integrationId = Integration.id
+    AND Integration.active = 1
+    AND Integration.id = ${integrationId}
   ;`;
 
-  return (await query(sql)) as IProductSku;
+  return (await query(sql)) as IProductSku[];
 }
