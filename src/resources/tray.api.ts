@@ -5,33 +5,33 @@ import { ErrorCategory, HttpStatus, MiddleError } from '../shared/errors/MiddleE
 
 // Retrieve Product
 export async function getProduct({
-  domain,
+  storePath,
   productId,
   accessToken,
   fetchFn = fetchWrapper,
 }: {
-  domain: string;
+  storePath: string;
   productId: number;
   accessToken: string;
   fetchFn?: Function;
 }): Promise<Product> {
-  const url = `https://${domain}/products/${productId}?access_token=${accessToken}`;
+  const url = `${storePath}/products/${productId}?access_token=${accessToken}`;
   return trayFetch({ url, method: 'GET', fetchFn });
 }
 
 // Update Variant
 export async function putVariant({
-  domain,
+  storePath,
   variant,
   accessToken,
   fetchFn = fetchWrapper,
 }: {
-  domain: string;
+  storePath: string;
   variant: Variant;
   accessToken: string;
   fetchFn?: Function;
 }): Promise<Variant> {
-  const url = `https://${domain}/products/variants/${variant.Variant.id}?access_token=${accessToken}`;
+  const url = `${storePath}/products/variants/${variant.Variant.id}?access_token=${accessToken}`;
   return trayFetch({ url, method: 'PUT', body: variant, fetchFn });
 }
 
@@ -51,32 +51,32 @@ export async function putVariant({
 // }
 
 export async function postAuth({
-  domain,
+  storePath,
   consumer_key,
   consumer_secret,
-  code,
+  accessCode,
   fetchFn = fetchWrapper,
 }: {
-  domain: string;
+  storePath: string;
   consumer_key: string;
   consumer_secret: string;
-  code: string;
+  accessCode: string;
   fetchFn?: Function;
 }): Promise<TrayToken> {
-  const url = `https://${domain}/auth`;
-  return trayFetch({ url, method: 'POST', body: { consumer_key, consumer_secret, code }, fetchFn });
+  const url = `${storePath}/auth`;
+  return trayFetch({ url, method: 'POST', body: { consumer_key, consumer_secret, code: accessCode }, fetchFn });
 }
 
 export async function getAuth({
-  domain,
+  storePath,
   refreshToken,
   fetchFn = fetchWrapper,
 }: {
-  domain: string;
+  storePath: string;
   refreshToken: string;
   fetchFn?: Function;
 }): Promise<TrayToken> {
-  const url = `https://${domain}/auth?refresh_token=${refreshToken}`;
+  const url = `${storePath}/auth?refresh_token=${refreshToken}`;
   return trayFetch({
     url,
     method: 'GET',
@@ -86,17 +86,17 @@ export async function getAuth({
 
 // Variant
 export async function getVariant({
-  domain,
+  storePath,
   variantId,
   accessToken,
   fetchFn = fetchWrapper,
 }: {
-  domain: string;
+  storePath: string;
   variantId: number;
   accessToken: string;
   fetchFn?: Function;
 }): Promise<Variant> {
-  const url = `https://${domain}/products/variants/${variantId}?access_token=${accessToken}`;
+  const url = `${storePath}/products/variants/${variantId}?access_token=${accessToken}`;
   return trayFetch({ url, method: 'GET', fetchFn });
 }
 

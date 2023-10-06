@@ -221,39 +221,35 @@ export function getIrrelevantUpdates(notifications: ENotification[]) {
 
 export async function updateTrayVariant(variant: Variant, integration: Integration): Promise<Variant> {
   const accessToken = await provideTrayAccessToken(integration);
-
-  return putVariant({ variant, accessToken, domain: integration.sellerTStoreUrl || '' });
+  return putVariant({ variant, accessToken, storePath: integration.sellerTStorePath || '' });
 }
 
 export async function getTrayProduct(productId: number, integration: Integration): Promise<Product> {
   const accessToken = await provideTrayAccessToken(integration);
-
-  return getProduct({ domain: integration.sellerTStoreUrl || '', productId, accessToken });
+  return getProduct({ storePath: integration.sellerTStorePath || '', productId, accessToken });
 }
 
 export async function getTrayVariant(variantId: number, integration: Integration): Promise<Variant> {
   const accessToken = await provideTrayAccessToken(integration);
-
-  return getVariant({ domain: integration.sellerTStoreUrl ?? '', variantId, accessToken });
+  return getVariant({ storePath: integration.sellerTStorePath || '', variantId, accessToken });
 }
 
 // First access
-async function getNewAccessToken(code: string, storeUrl: string): Promise<TrayToken> {
+async function getNewAccessToken(accessCode: string, storePath: string): Promise<TrayToken> {
   const key: string = config.get(EVarNames.TRAY_KEY);
   const secret: string = config.get(EVarNames.TRAY_SECRET);
-
-  return postAuth({ domain: storeUrl, consumer_key: key, consumer_secret: secret, code });
+  return postAuth({ storePath, consumer_key: key, consumer_secret: secret, accessCode });
 }
 
 // Refresh token
-async function getRefreshedToken(refreshToken: string, storeUrl: string): Promise<TrayToken> {
-  return getAuth({ domain: storeUrl, refreshToken });
+async function getRefreshedToken(refreshToken: string, storePath: string): Promise<TrayToken> {
+  return getAuth({ storePath, refreshToken });
 }
 
 export async function provideTrayAccessToken(integration: Integration): Promise<string> {
   // Required connection details
-  const { id, sellerTStoreCode, sellerTStoreUrl, sellerTRefreshToken, sellerTAccessToken } = integration;
-  if (!sellerTStoreCode || !sellerTStoreUrl) {
+  const { id, sellerTStoreAccessCode, sellerTStorePath, sellerTRefreshToken, sellerTAccessToken } = integration;
+  if (!sellerTStoreAccessCode || !sellerTStorePath) {
     const errorMessage = `Integration record: ${id} missing required information`;
     log.error(errorMessage);
     throw new MiddleError(errorMessage, ErrorCategory.BUS);
@@ -268,7 +264,7 @@ export async function provideTrayAccessToken(integration: Integration): Promise<
   // Check connection
   if (hasExpiredTokens(integration)) {
     try {
-      const trayToken = await getNewAccessToken(sellerTStoreCode, sellerTStoreUrl);
+      const trayToken = await getNewAccessToken(sellerTStoreAccessCode, sellerTStorePath);
       integrationCopy = copyToken(integration, trayToken);
     } catch (err) {
       throw new MiddleError(
@@ -282,7 +278,7 @@ export async function provideTrayAccessToken(integration: Integration): Promise<
   if (hasOnlyAccessTokenExpired(integration)) {
     try {
       if (sellerTRefreshToken) {
-        const trayToken = await getRefreshedToken(sellerTRefreshToken, sellerTStoreUrl);
+        const trayToken = await getRefreshedToken(sellerTRefreshToken, sellerTStorePath);
         integrationCopy = copyToken(integration, trayToken);
       }
     } catch (err) {
