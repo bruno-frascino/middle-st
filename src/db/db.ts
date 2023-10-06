@@ -2,7 +2,7 @@ import mysql, { ResultSetHeader } from 'mysql2';
 import config from 'config';
 import log from '../logger';
 import { EVarNames } from '../shared/utils/utils';
-import { Notification as ENotification, IProduct, IProductSku, Integration, TCredentials } from '../model/db.model';
+import { Notification as ENotification, IProduct, IProductSku, Integration } from '../model/db.model';
 import { Notification } from '../model/tray.model';
 
 let connectionPool: mysql.Pool;
@@ -129,7 +129,7 @@ export async function insertIntegration({ storeCode }: { storeCode: string }) {
 }
 
 export async function updateInitialIntegration(integration: Integration) {
-  const { sellerName, sellerSKey, sellerSSecret, sellerTStoreAccessCode, sellerTStoreUrl, sellerTStoreCode } =
+  const { sellerName, sellerSKey, sellerSSecret, sellerTStoreAccessCode, sellerTStorePath, sellerTStoreCode } =
     integration;
   const sql = `UPDATE Integration 
   SET 
@@ -137,7 +137,7 @@ export async function updateInitialIntegration(integration: Integration) {
     sellerSKey = ?,
     sellerSSecret = ?,
     sellerTStoreAccessCode = ?,
-    sellerTStoreUrl = ?,
+    sellerTStorePath = ?,
     active = 1
   WHERE sellerTStoreCode = ?`;
 
@@ -146,7 +146,7 @@ export async function updateInitialIntegration(integration: Integration) {
     sellerSKey,
     sellerSSecret,
     sellerTStoreAccessCode,
-    sellerTStoreUrl,
+    sellerTStorePath,
     sellerTStoreCode,
   ])) as Integration;
 }
