@@ -21,8 +21,8 @@ import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
  */
 export async function provideSmAccessToken(integration: Integration): Promise<string> {
   // Required connection details
-  const { id, sellerSId, sellerSKey, sellerSSecret, sellerSAccessToken } = integration;
-  if (!sellerSKey || !sellerSSecret || !sellerSId) {
+  const { id, sellerSKey, sellerSSecret, sellerSAccessToken } = integration;
+  if (!sellerSKey || !sellerSSecret) {
     const errorMessage = `Integration record: ${id} missing required information`;
     log.error(errorMessage);
     throw new MiddleError(errorMessage, ErrorCategory.BUS);
