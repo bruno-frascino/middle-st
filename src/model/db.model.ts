@@ -1,7 +1,6 @@
 export interface Integration {
   id: number;
   sellerName?: string;
-  sellerSId?: number;
   sellerSKey?: string;
   sellerSSecret?: string;
   sellerSAccessToken?: string;
@@ -10,7 +9,8 @@ export interface Integration {
   sellerSRefreshExpirationDate?: number;
   sellerTStoreCode: string;
   sellerTStoreAccessCode?: string;
-  sellerTStoreUrl?: string;
+  sellerTStoreAdminUser?: string;
+  sellerTStorePath?: string;
   sellerTAccessToken?: string;
   sellerTRefreshToken?: string;
   sellerTAccessExpirationDate?: number;
