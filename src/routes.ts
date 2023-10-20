@@ -1,8 +1,9 @@
 import { Express, Request, Response } from 'express';
 import {
-  finaliseIntegrationHandler,
+  getIntegrationByStoreCodeHandler,
   initiateIntegrationHandler,
   notificationHandler,
+  updateIntegrationHandler,
 } from './controller/web.controller';
 
 export default function (app: Express) {
@@ -15,9 +16,12 @@ export default function (app: Express) {
   // Input - Tray
   app.post('/api/notifications', notificationHandler);
 
-  // Integration  1st step
+  // Integration Create (1st step)
   app.post('/api/integration', initiateIntegrationHandler);
 
-  // Integration 2nd step
-  app.put('/api/integration', finaliseIntegrationHandler);
+  // Integration Update (2nd step)
+  app.put('/api/integration', updateIntegrationHandler);
+
+  //
+  app.get('/api/integration', getIntegrationByStoreCodeHandler);
 }
