@@ -7,7 +7,7 @@ export interface Integration {
   sellerSRefreshToken?: string;
   sellerSAccessExpirationDate?: number; // stored in Unix time
   sellerSRefreshExpirationDate?: number;
-  sellerTStoreCode: string;
+  sellerTStoreCode: number;
   sellerTStoreAccessCode?: string;
   sellerTStoreAdminUser?: string;
   sellerTStorePath?: string;
