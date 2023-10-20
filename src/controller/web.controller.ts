@@ -2,12 +2,13 @@ import { NextFunction, Request, Response } from 'express';
 import log from '../logger';
 import { Notification, isNotification } from '../model/tray.model';
 import { getConsumerKey, handleNotification } from '../services/tray.service';
-import { createIntegration, updateIntegrationDetails } from '../services/middle.service';
+import { createIntegration, getIntegrationDetails, updateIntegrationDetails } from '../services/middle.service';
 import { isValidIntegration } from '../model/db.model';
 
 export async function notificationHandler(req: Request, res: Response, next: NextFunction) {
   try {
     // Validate Input
+    log.debug(`Request body for Notification handler: ${JSON.stringify(req.body)}`);
     if (!isNotification(req.body)) {
       log.error(`Invalid notification body ${JSON.stringify(req.body)}`);
       res.sendStatus(400);
@@ -15,7 +16,7 @@ export async function notificationHandler(req: Request, res: Response, next: Nex
     }
     const notification: Notification = req.body;
     // Save Notification to be processed later
-    handleNotification(notification);
+    await handleNotification(notification);
     res.sendStatus(200);
   } catch (err) {
     log.error(`Unable to handle notification: ${err}`);
@@ -47,7 +48,7 @@ export async function initiateIntegrationHandler(req: Request, res: Response, ne
   }
 }
 
-export async function finaliseIntegrationHandler(req: Request, res: Response, next: NextFunction) {
+export async function updateIntegrationHandler(req: Request, res: Response, next: NextFunction) {
   // Validate Input
   const requestData = req.body;
   try {
@@ -66,7 +67,36 @@ export async function finaliseIntegrationHandler(req: Request, res: Response, ne
       responseData,
     });
   } catch (err) {
-    log.error(`Unable to finalise Integration with data ${JSON.stringify(requestData)} with error: ${err}`);
+    log.error(`Unable to update Integration with data ${JSON.stringify(requestData)} with error: ${err}`);
+    next(err);
+  }
+}
+
+export async function getIntegrationByStoreCodeHandler(req: Request, res: Response, next: NextFunction) {
+  // Validate Input
+  const storeCodeParam = req.query.storeCode;
+  try {
+    if (!storeCodeParam) {
+      const msg = `Missing storeCode parameter to get Integration`;
+      log.error(msg);
+      res.status(400).json({ message: msg });
+      return;
+    }
+    if (typeof storeCodeParam !== 'string') {
+      res.status(500).json({ error: 'Invalid parameter' });
+      return;
+    }
+
+    const integration = await getIntegrationDetails(Number.parseInt(storeCodeParam, 10));
+    const responseData = {
+      integration,
+    };
+
+    res.status(200).json({
+      responseData,
+    });
+  } catch (err) {
+    log.error(`Unable to get Integration data for storeCode ${storeCodeParam} with error: ${err}`);
     next(err);
   }
 }

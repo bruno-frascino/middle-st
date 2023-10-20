@@ -1,11 +1,12 @@
 import config from 'config';
 import { Act, Notification, Product, Scope, TrayToken, Variant } from '../model/tray.model';
 import log from '../logger';
-import { getIntegrationByT, getOrderedNotifications, insertNotification, updateTConnectionDetails } from '../db/db';
+import { getOrderedNotifications, insertNotification, updateTConnectionDetails } from '../db/db';
 import { Notification as ENotification, Integration } from '../model/db.model';
 import { EVarNames, convertStringToUnixTime, getCurrentUnixTime } from '../shared/utils/utils';
 import { getAuth, getProduct, getVariant, postAuth, putVariant } from '../resources/tray.api';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
+import { getIntegrationDetails } from './middle.service';
 
 export async function getConsumerKey() {
   const consumerKey = config.get(EVarNames.TRAY_KEY);
@@ -20,12 +21,12 @@ export async function getConsumerKey() {
 export async function handleNotification(notification: Notification) {
   log.info(`Handling new notification ${JSON.stringify(notification)}`);
 
-  const { seller_id, app_code } = notification;
+  const { seller_id } = notification;
 
   // Get seller's integration details
-  const integration = await getIntegrationByT(seller_id, app_code);
-  if (!integration) {
-    throw new MiddleError(`T Seller not found for id: ${seller_id} and app: ${app_code}`, ErrorCategory.BUS);
+  const integration = await getIntegrationDetails(seller_id);
+  if (!integration || (Array.isArray(integration) && integration.length === 0)) {
+    throw new MiddleError(`T Seller not found for storeCode: ${seller_id}`, ErrorCategory.BUS);
   }
 
   // Store Notification

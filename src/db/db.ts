@@ -81,14 +81,13 @@ export function run(sql: string, values: any[] = []) {
   });
 }
 
-export async function getIntegrationByT(tSellerId: number, tAppCode: string) {
+export async function getIntegrationByStoreCode(storeCode: number) {
   const sql = `SELECT * 
               FROM Integration 
-              WHERE sellerTId = ? 
-              AND sellerTStoreCode = ?
+              WHERE sellerTStoreCode = ?
               AND active = 1`;
 
-  return (await query(sql, [tSellerId, tAppCode])) as Integration;
+  return (await query(sql, [storeCode])) as Integration;
 }
 
 export async function getIntegrationById(id: number) {
@@ -118,7 +117,7 @@ export async function getAllIProducts() {
   return (await query(sql)) as IProduct[];
 }
 
-export async function insertIntegration({ storeCode }: { storeCode: string }) {
+export async function insertIntegration({ storeCode }: { storeCode: number }) {
   const sql = `INSERT INTO Integration(
               sellerTStoreCode, createDate, active) 
               VALUES(
@@ -128,7 +127,7 @@ export async function insertIntegration({ storeCode }: { storeCode: string }) {
   return (await run(sql, [storeCode])) as Integration;
 }
 
-export async function updateInitialIntegration(integration: Integration) {
+export async function updateIntegrationByStoreCode(integration: Integration) {
   const { sellerName, sellerSKey, sellerSSecret, sellerTStoreAccessCode, sellerTStorePath, sellerTStoreCode } =
     integration;
   const sql = `UPDATE Integration 
@@ -153,9 +152,9 @@ export async function updateInitialIntegration(integration: Integration) {
 
 export async function insertNotification(notification: Notification, integrationId: number) {
   const sql = `INSERT INTO Notification(
-                scopeName, act, scopeId, sellerId, appCode, storeUrl, integrationId, createDate, complete) 
+                scopeName, act, scopeId, sellerId, integrationId, createDate, complete) 
               VALUES(
-                ?, ?, ?, ?, ?, ?, ?, now(), 0
+                ?, ?, ?, ?, ?, now(), 0
             );`;
 
   return (await run(sql, [
@@ -163,8 +162,6 @@ export async function insertNotification(notification: Notification, integration
     notification.act,
     notification.scope_id,
     notification.seller_id,
-    notification.app_code,
-    notification.url_notification,
     integrationId,
   ])) as Object;
 }

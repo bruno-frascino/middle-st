@@ -32,22 +32,31 @@ import {
   getIProductSkuByVariant,
   getIProductSkusByIntegration,
   getIntegrationById,
+  getIntegrationByStoreCode,
   insertIntegration,
   updateIProduct,
   updateIProductSku,
   updateIProductSkuByIProduct,
-  updateInitialIntegration,
+  updateIntegrationByStoreCode,
 } from '../db/db';
 
 export async function createIntegration({ storeCode }: { storeCode: string }) {
-  const integration = await insertIntegration({ storeCode });
+  const integration = await insertIntegration({ storeCode: Number.parseInt(storeCode, 10) });
   log.info(`Integration record for store code ${storeCode} has been created successfully`);
   return integration;
 }
 
 export async function updateIntegrationDetails(integrationParam: Integration) {
-  const integration = await updateInitialIntegration(integrationParam);
+  const integration = await updateIntegrationByStoreCode(integrationParam);
   log.info(`Integration for store code ${integration.sellerTStoreCode} has been updated with details successfully`);
+  return integration;
+}
+
+export async function getIntegrationDetails(storeCode: number) {
+  const integration = await getIntegrationByStoreCode(storeCode);
+  if (!integration) {
+    log.error(`Integration for store code ${storeCode} could not be found`);
+  }
   return integration;
 }
 

@@ -41,21 +41,11 @@ export interface Notification {
   scope_id: number; // Código do escopo da notificação
   scope_name: string; // Nome do escopo notificado.
   act: string; // TODO - Enum // insert | update | delete
-  app_code: string; // unico por loja, usado para acessar a api
-  url_notification: string;
 }
 
 // TODO - Identify which ones are optional
 export function isNotification(object: any) {
-  return !!(
-    object.seller_id &&
-    object.scope_id &&
-    object.scope_name &&
-    object.act &&
-    validAction(object.act) &&
-    object.app_code &&
-    object.url_notification
-  );
+  return !!(object.seller_id && object.scope_id && object.scope_name && object.act && validAction(object.act));
 }
 
 export interface TrayKey {
