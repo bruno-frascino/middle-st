@@ -1,3 +1,8 @@
+DROP TABLE Notification;
+DROP TABLE IProduct_SKU;
+DROP TABLE IProduct;
+DROP TABLE Integration;
+
 -- Create Tables
 -- S and T Integration Details
 CREATE TABLE Integration(
@@ -9,7 +14,7 @@ CREATE TABLE Integration(
   sellerSRefreshToken VARCHAR(600),
   sellerSAccessExpirationDate INT UNSIGNED,  -- unix time
   sellerSRefreshExpirationDate INT UNSIGNED,
-  sellerTStoreCode VARCHAR(90) UNIQUE NOT NULL,
+  sellerTStoreCode BIGINT UNSIGNED UNIQUE NOT NULL,
   sellerTStoreAccessCode VARCHAR(100),
   sellerTStoreAdminUser VARCHAR(30),
   sellerTStorePath VARCHAR(90),
