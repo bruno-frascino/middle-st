@@ -25,9 +25,8 @@ export async function handleNotification(notification: Notification) {
 
   // Get seller's integration details
   const integration = await getIntegrationDetails(seller_id);
-  if (!integration || (Array.isArray(integration) && integration.length === 0)) {
-    throw new MiddleError(`T Seller not found for storeCode: ${seller_id}`, ErrorCategory.BUS);
-  }
+
+  log.warn(`Integration Found: ${JSON.stringify(integration)}`);
 
   // Store Notification
   const id = await insertNotification(notification, integration.id);
@@ -56,11 +55,12 @@ export function getSlimNotifications(notifications: ENotification[]) {
     return !multiUpdates.includes(notification.id);
   });
 
-  // FILTER OUT Out of Scope Notifications
-  const ordersAndCustomers = getOrdersAndCustomers(notifications);
-  const noOutOfScopeUpdatesMistakes = noMultiMistakes.filter((notification) => {
-    return !ordersAndCustomers.includes(notification.id);
-  });
+  // TODO - to remove as there is no push for those out of scope
+  // // FILTER OUT Out of Scope Notifications
+  // const ordersAndCustomers = getOrdersAndCustomers(notifications);
+  // const noOutOfScopeUpdatesMistakes = noMultiMistakes.filter((notification) => {
+  //   return !ordersAndCustomers.includes(notification.id);
+  // });
 
   // Translate scope/id/act to Tray requests
   // delete > insert > update
@@ -74,19 +74,19 @@ export function getSlimNotifications(notifications: ENotification[]) {
   // variant_stock_insert? | variant_stock_update | variant_stock_delete?
 
   // FILTER OUT No Affect Update Notifications
-  const irrelevant = getIrrelevantUpdates(noOutOfScopeUpdatesMistakes);
-  const slimNotifications = noOutOfScopeUpdatesMistakes.filter((notification) => {
+  const irrelevant = getIrrelevantUpdates(noMultiMistakes);
+  const slimNotifications = noMultiMistakes.filter((notification) => {
     return !irrelevant.includes(notification.id);
   });
 
   // TODO - Review this logic. Suggestion to keep a table with "unused" notifications
   // DELETE unnecessary notifications
-  const totalUnused = mistakes.concat(multiUpdates).concat(ordersAndCustomers).concat(irrelevant);
+  const totalUnused = mistakes.concat(multiUpdates).concat(irrelevant);
   // await deleteNotifications(mistakes.concat(multiUpdates).concat(ordersAndCustomers).concat(irrelevant));
 
   log.info(`Notifications size: ${notifications.length}`);
   log.info(`Mistakes size: ${totalUnused.length}`);
-  log.info(`Slim sie:: ${slimNotifications.length}`);
+  log.info(`Slim size:: ${slimNotifications.length}`);
 
   return slimNotifications;
 }
@@ -166,25 +166,26 @@ export function flatUpdates(notifications: ENotification[]) {
   });
 }
 
-/**
- * Get Order and Customer notifications - out of scope
- * @param notifications
- * @returns
- */
-export function getOrdersAndCustomers(notifications: ENotification[]) {
-  const ordersAndCustomers = notifications.filter(
-    (notification) => notification.scopeName === Scope.ORDER || notification.scopeName === Scope.CUSTOMER,
-  );
+// TODO - remove it as there is no push notification for out of scope actions
+// /**
+//  * Get Order and Customer notifications - out of scope
+//  * @param notifications
+//  * @returns
+//  */
+// export function getOrdersAndCustomers(notifications: ENotification[]) {
+//   const ordersAndCustomers = notifications.filter(
+//     (notification) => notification.scopeName === Scope.ORDER || notification.scopeName === Scope.CUSTOMER,
+//   );
 
-  ordersAndCustomers.forEach((notification) => {
-    log.info(`Out of Scope notifications to be ignored and removed: ${JSON.stringify(notification)}`);
-  });
+//   ordersAndCustomers.forEach((notification) => {
+//     log.info(`Out of Scope notifications to be ignored and removed: ${JSON.stringify(notification)}`);
+//   });
 
-  // array of ids
-  return ordersAndCustomers.map((notification) => {
-    return notification.id;
-  });
-}
+//   // array of ids
+//   return ordersAndCustomers.map((notification) => {
+//     return notification.id;
+//   });
+// }
 
 // Get Updates that doesn't make an effect
 // insert and update == 1 action (insert)

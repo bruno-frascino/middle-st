@@ -87,7 +87,7 @@ export async function getIntegrationByStoreCode(storeCode: number) {
               WHERE sellerTStoreCode = ?
               AND active = 1`;
 
-  return (await query(sql, [storeCode])) as Integration;
+  return (await query(sql, [storeCode])) as Integration[];
 }
 
 export async function getIntegrationById(id: number) {
@@ -96,7 +96,7 @@ export async function getIntegrationById(id: number) {
               WHERE id = ${id}
               AND active = 1`;
 
-  return (await query(sql)) as Integration;
+  return (await query(sql)) as Integration[];
 }
 
 export async function getAllIntegrations() {
@@ -151,6 +151,7 @@ export async function updateIntegrationByStoreCode(integration: Integration) {
 }
 
 export async function insertNotification(notification: Notification, integrationId: number) {
+  log.warn(`insertNotification, int id: ${integrationId}`);
   const sql = `INSERT INTO Notification(
                 scopeName, act, scopeId, sellerId, integrationId, createDate, complete) 
               VALUES(

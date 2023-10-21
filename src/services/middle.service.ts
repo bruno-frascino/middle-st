@@ -39,6 +39,7 @@ import {
   updateIProductSkuByIProduct,
   updateIntegrationByStoreCode,
 } from '../db/db';
+import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 
 export async function createIntegration({ storeCode }: { storeCode: string }) {
   const integration = await insertIntegration({ storeCode: Number.parseInt(storeCode, 10) });
@@ -53,11 +54,13 @@ export async function updateIntegrationDetails(integrationParam: Integration) {
 }
 
 export async function getIntegrationDetails(storeCode: number) {
-  const integration = await getIntegrationByStoreCode(storeCode);
-  if (!integration) {
-    log.error(`Integration for store code ${storeCode} could not be found`);
+  const integrations = await getIntegrationByStoreCode(storeCode);
+
+  if (!integrations || (Array.isArray(integrations) && integrations.length === 0)) {
+    throw new MiddleError(`T Seller not found for storeCode: ${storeCode}`, ErrorCategory.BUS);
   }
-  return integration;
+
+  return integrations[0];
 }
 
 /**
@@ -112,12 +115,32 @@ export async function monitorTrayNotifications() {
   }
   log.info(`Tray notifications found: ${notifications.length}`);
 
-  getSlimNotifications(notifications).forEach(async (notification) => {
+  const sNotifications = getSlimNotifications(notifications);
+  // eslint-disable-next-line no-restricted-syntax
+  for (const notification of sNotifications) {
     let tProductId;
-    const integration = await getIntegrationById(notification.integrationId);
+    const integrations = await getIntegrationById(notification.integrationId);
+    if (!integrations || (Array.isArray(integrations) && integrations.length === 0)) {
+      throw new MiddleError(`Integration not found for id: ${notification.integrationId}`, ErrorCategory.BUS);
+    }
+    const integration = integrations[0];
+
     switch (`${notification.scopeName}-${notification.act}`) {
+      case `${Scope.ORDER}-${Act.INSERT}`:
+      case `${Scope.ORDER}-${Act.UPDATE}`: {
+        // TODO
+        // GET ORDER
+        // GET TRAY PRODUCT ID FROM RESPONSE
+        // GET RELATED SM PRODUCT FROM IPRODUCT
+        // GET SM PRODUCT DETAILS*
+        // UPDATE SM PRODUCT STOCK VALUE
+        break;
+      }
+      case `${Scope.ORDER}-${Act.DELETE}`: {
+        // TODO
+        break;
+      }
       case `${Scope.PRODUCT}-${Act.INSERT}`: {
-        console.log('product insert');
         try {
           // GET TRAY PRODUCT (API)
           const tProduct = await getTrayProduct(notification.scopeId, integration);
@@ -150,7 +173,7 @@ export async function monitorTrayNotifications() {
       case `${Scope.PRODUCT_STOCK}-${Act.INSERT}`:
       case `${Scope.PRODUCT_PRICE}-${Act.DELETE}`: // TODO: CHECK THIS USE CASE
       case `${Scope.PRODUCT_STOCK}-${Act.DELETE}`: {
-        console.log('product update');
+        log.warn('product update');
         try {
           // GET TRAY PRODUCT (API)
           const tProduct = await getTrayProduct(notification.scopeId, integration);
@@ -182,7 +205,7 @@ export async function monitorTrayNotifications() {
         break;
       }
       case `${Scope.PRODUCT}-${Act.DELETE}`: {
-        console.log('product delete');
+        log.warn('product delete');
         try {
           // GET SM ID FROM REGISTER
           tProductId = notification.scopeId;
@@ -254,7 +277,6 @@ export async function monitorTrayNotifications() {
         // case `${Scope.VARIANT_STOCK}-${Act.INSERT}`:
         // case `${Scope.VARIANT_PRICE}-${Act.DELETE}`:
         // case `${Scope.VARIANT_STOCK}-${Act.DELETE}`:
-        console.log('variant update');
         try {
           // GET TRAY VARIANT (API)
           const variant = await getTrayVariant(notification.scopeId, integration);
@@ -293,7 +315,7 @@ export async function monitorTrayNotifications() {
         break;
       }
       case `${Scope.VARIANT}-${Act.DELETE}`: {
-        console.log('variant delete');
+        log.warn('variant delete');
         try {
           // GET IPRODUCT_SKU
           const iProductSku = await getIProductSkuByVariant({ tVariantId: notification.scopeId });
@@ -311,7 +333,7 @@ export async function monitorTrayNotifications() {
           `Notification with scope-action: ${notification.scopeName}-${notification.act} could not be processed`,
         );
     }
-  });
+  }
 
   const stop = getCurrentUnixTime();
   log.info(`Tray monitor started at: ${start} and finished after ${(stop - start) / 60}mins`);
