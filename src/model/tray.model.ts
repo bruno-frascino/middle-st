@@ -48,12 +48,6 @@ export function isNotification(object: any) {
   return !!(object.seller_id && object.scope_id && object.scope_name && object.act && validAction(object.act));
 }
 
-export interface TrayKey {
-  sellerId: number;
-  scopeId: number;
-  appCode: string;
-}
-
 function validAction(act: string) {
   return act === Act.INSERT || act === Act.UPDATE || act === Act.DELETE;
 }
