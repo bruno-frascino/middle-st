@@ -33,8 +33,6 @@ CREATE TABLE Notification(
   act VARCHAR(15) NOT NULL,
   scopeId INT UNSIGNED NOT NULL,
   sellerId INT UNSIGNED NOT NULL,
-  appCode VARCHAR(350) NOT NULL,   
-  storeUrl VARCHAR(200) NOT NULL,
   integrationId INT UNSIGNED NOT NULL,
   createDate DATETIME NOT NULL,
   complete BOOLEAN NOT NULL,
