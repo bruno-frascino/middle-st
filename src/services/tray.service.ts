@@ -240,6 +240,7 @@ export async function getTrayVariant(variantId: number, integration: Integration
 async function getNewAccessToken(accessCode: string, storePath: string): Promise<TrayToken> {
   const key: string = config.get(EVarNames.TRAY_KEY);
   const secret: string = config.get(EVarNames.TRAY_SECRET);
+  log.warn(`New T access token`);
   return postAuth({ storePath, consumer_key: key, consumer_secret: secret, accessCode });
 }
 
@@ -259,18 +260,21 @@ export async function provideTrayAccessToken(integration: Integration): Promise<
 
   // valid connection - no action required
   if (integration && sellerTAccessToken && hasValidTokens(integration)) {
+    log.warn('T existing valid access token');
     return sellerTAccessToken;
   }
 
   let integrationCopy;
   // Check connection
   if (hasExpiredTokens(integration)) {
+    log.warn('T has expired tokens');
     try {
       const trayToken = await getNewAccessToken(sellerTStoreAccessCode, sellerTStorePath);
+      // log.warn(`Tray Token: ${trayToken}`);
       integrationCopy = copyToken(integration, trayToken);
     } catch (err) {
       throw new MiddleError(
-        `Tray new access token could not be retrieved for integration: ${id}:${integration.sellerName}`,
+        `Tray new access token could not be retrieved for integration: ${id}:${integration.sellerName} with error: ${err}`,
         ErrorCategory.BUS,
       );
     }
@@ -278,13 +282,14 @@ export async function provideTrayAccessToken(integration: Integration): Promise<
 
   // access connection expired but not refresh
   if (hasOnlyAccessTokenExpired(integration)) {
+    log.warn('T has only access token expired');
     try {
       if (sellerTRefreshToken) {
         const trayToken = await getRefreshedToken(sellerTRefreshToken, sellerTStorePath);
         integrationCopy = copyToken(integration, trayToken);
       }
     } catch (err) {
-      const errorMessage = `Refreshed token could not be retrieved for integration: ${id}`;
+      const errorMessage = `Refreshed token could not be retrieved for integration: ${id} with error: ${err}`;
       log.error(errorMessage);
       throw new MiddleError(errorMessage, ErrorCategory.BUS);
     }
@@ -344,6 +349,11 @@ function hasValidTokens(integration: Integration) {
   }
 
   const now = getCurrentUnixTime();
+  // log.warn('-- Got here --');
+  // log.warn(`-- now ${now}`);
+  // log.warn(`-- sellerTAccessExpirationDate ${sellerTAccessExpirationDate}`);
+  // log.warn(`-- sellerTRefreshExpirationDate ${sellerTRefreshExpirationDate}`);
+
   return (
     sellerTAccessExpirationDate &&
     sellerTAccessExpirationDate >= now &&

@@ -161,7 +161,9 @@ export async function monitorTrayNotifications() {
           );
         } catch (error) {
           log.error(
-            `Failed to integrate a new Product: ${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`,
+            `Failed to integrate a new Product: ${notification.scopeId} for Integration: ${
+              notification.integrationId
+            }. Error: ${JSON.stringify(error)}`,
           );
         }
         break;
