@@ -64,6 +64,55 @@ export interface IProductSku {
   state: string;
 }
 
+export interface Brand_Map {
+  id: number;
+  sBrandId: number;
+  sBrandName: string;
+  tBrandId: number;
+  tBrandName: string;
+  createDate: string;
+  updateDate?: string;
+  active: number;
+}
+
+export interface Category_Map {
+  id: number;
+  sCategoryId: number;
+  sCategoryName: string;
+  tCategoryId: number;
+  tCategoryName: string;
+  createDate: string;
+  updateDate?: string;
+  active: number;
+}
+export interface SBrand {
+  id: number;
+  name: string;
+  slug: string;
+  seoTitle: string;
+  seoDescription: string;
+  seoKeywords: string;
+  createDate: string;
+  updateDate?: string;
+  active: number;
+}
+
+export interface TBrand {
+  id: number;
+  slug: string;
+  brand: string;
+  createDate: string;
+  updateDate?: string;
+  active: number;
+}
+
+export interface IError {
+  id: number;
+  errorMessage: string;
+  createDate: string;
+  updateDate?: string;
+}
+
 export function isValidIntegration(object: any) {
   return !!(
     object.sellerName &&

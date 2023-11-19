@@ -120,12 +120,12 @@ export interface Product {
     related_products: number[]; // produtos relacionados
     free_shipping: number; // Produto com frete grátis (Veja Tabela C)
     current_price: number;
-    ipi: number;
+    ipi: number; // [0,1]
     acceptance_term_option: number; // Opção do termo de aceitação do produto
     acceptance_term: number;
     warranty_days: number;
     availability_days: number;
-    metatag: TypeContent[];
+    metatag: Metatag;
     Variant: number[]; // TODO Confirm this
     is_kit: number; // 0 | 1
     activation_date: string;
@@ -180,9 +180,9 @@ interface Properties {
 //   ]
 // },
 
-interface TypeContent {
-  type: string;
-  content: string;
+interface Metatag {
+  type: string; // Tipo da metatag, só recebe keywords
+  description: string;
 }
 
 export interface Variant {
@@ -229,4 +229,27 @@ interface PaymentDetails {
   plots: number;
   value: number;
   tax: number;
+}
+
+export interface BrandResponse {
+  paging: {
+    total: number;
+    page: number;
+    offset: number;
+    limit: number;
+    maxLimit: number;
+  };
+  sort: any[];
+  availableFilters: string[];
+  appliedFilters: [];
+  Brands: BrandWrapper[];
+}
+
+export interface BrandWrapper {
+  Brand: Brand;
+}
+export interface Brand {
+  id: number;
+  slug: string;
+  brand: string;
 }

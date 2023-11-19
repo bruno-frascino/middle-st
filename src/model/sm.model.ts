@@ -46,21 +46,25 @@ export interface Variant {
 }
 export interface Sku {
   id?: number;
-  code_sku: string; //                id ?
-  barcode: string; //                 ean
-  prices: Price; //                   price && cost_price
   stock: number; //                   stock
+  barcode: string; //                 ean
+  code_sku: string; //                id ?
   status: string; //                  "INACTIVE" | ACTIVE  // available
   unity_type: string; //              SM
   unity_quantity: number; //          SM
   extra_days_to_delivery: number; //  SM
   dimensions: Dimension; //           weight, length, width, height
+  prices: Price; //                   price && cost_price
   variants: Variant[];
 }
 export interface Product {
   id: number;
   title: string;
   publish: boolean;
+  active: boolean;
+  slug: string;
+  old_url: string;
+  block?: string;
   categories: number[];
   attributes: number[]; // TODO - check type here?
   description: string;
@@ -68,12 +72,66 @@ export interface Product {
   model: string;
   reference_code: string;
   condition: string; // Novo | Usado
-  min_wholesale_quantity: number;
-  url_video: string;
+  supports_seller_contact: boolean;
+  wholesale?: Wholesale; // no related field in Tray
+  url_video?: string; //
   shipping: Shipping;
   seo: Seo;
-  google_shopping: GoogleShopping;
+  google_shopping?: GoogleShopping;
+  gallery: Gallery;
   skus: Sku[];
+  created_at: string;
+}
+
+export interface BrandResponse {
+  data: Brand[];
+  meta: {
+    pagination: {
+      total: number;
+      count: number;
+      per_page: number;
+      current_page: number;
+      total_pages: number;
+      links: {};
+    };
+  };
+}
+
+export interface Brand {
+  id: number;
+  name: string;
+  slug: string;
+  seo_title: string;
+  seo_description: string;
+  seo_keywords: string;
+}
+
+export interface Gallery {
+  video: string;
+  images: Image[];
+}
+
+interface Image {
+  url: string;
+  sequence: number;
+}
+interface Wholesale {
+  minimum_quantity: number;
+}
+
+export interface Category {
+  id: number;
+  parent_id: number;
+  referenceCode: string;
+  name: string;
+  slug: string;
+  seo_title: string;
+  seo_description: string;
+  seo_keywords: string;
+  seo_h1: string;
+  description: string;
+  image_url: string;
+  active: number;
 }
 
 export enum Condition {
