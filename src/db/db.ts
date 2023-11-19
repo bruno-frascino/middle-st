@@ -2,8 +2,19 @@ import mysql, { ResultSetHeader } from 'mysql2';
 import config from 'config';
 import log from '../logger';
 import { EVarNames } from '../shared/utils/utils';
-import { Notification as ENotification, IProduct, IProductSku, Integration } from '../model/db.model';
+import {
+  Brand_Map,
+  Category_Map,
+  Notification as ENotification,
+  SBrand as ESBrand,
+  TBrand as ETBrand,
+  IError,
+  IProduct,
+  IProductSku,
+  Integration,
+} from '../model/db.model';
 import { Notification } from '../model/tray.model';
+import { Brand as SBrand } from '../model/sm.model';
 
 let connectionPool: mysql.Pool;
 
@@ -99,7 +110,7 @@ export async function getIntegrationById(id: number) {
   return (await query(sql)) as Integration[];
 }
 
-export async function getAllIntegrations() {
+export async function getAllActiveIntegrations() {
   const sql = `SELECT * 
               FROM Integration 
               WHERE active = 1
@@ -125,6 +136,16 @@ export async function insertIntegration({ storeCode }: { storeCode: number }) {
             );`;
 
   return (await run(sql, [storeCode])) as Integration;
+}
+
+export async function insertIError({ errorMessage }: { errorMessage: string }) {
+  const sql = `INSERT INTO IError(
+              message, createDate) 
+              VALUES(
+              ?, now()
+            );`;
+
+  return (await run(sql, [errorMessage])) as IError;
 }
 
 export async function updateIntegrationByStoreCode(integration: Integration) {
@@ -360,6 +381,33 @@ export async function getIProductSkuByVariant({ tVariantId }: { tVariantId: numb
   return (await query(sql)) as IProductSku;
 }
 
+export async function getBrandMapByTName({ tBrandName }: { tBrandName: string }) {
+  const sql = `SELECT *
+  FROM Brand_Map
+  WHERE UPPER(sBrandName) = UPPER(${tBrandName})
+  AND active = 1;`;
+
+  return (await query(sql)) as Brand_Map;
+}
+
+export async function getCategoryMapByTId({ tCategoryId }: { tCategoryId: number }) {
+  const sql = `SELECT *
+  FROM Category_Map
+  WHERE sCategoryId = ${tCategoryId}
+  AND active = 1;`;
+
+  return (await query(sql)) as Category_Map;
+}
+
+export async function getCategoryMapByTName({ tCategoryName }: { tCategoryName: string }) {
+  const sql = `SELECT *
+  FROM Category_Map
+  WHERE UPPER(sCategoryName) = UPPER(${tCategoryName})
+  AND active = 1;`;
+
+  return (await query(sql)) as Category_Map;
+}
+
 export async function getIProductSkusByIProduct(iProductId: number) {
   const sql = `SELECT * 
   FROM IProduct_SKU
@@ -367,6 +415,55 @@ export async function getIProductSkusByIProduct(iProductId: number) {
   AND state <> 'D';`;
 
   return (await query(sql)) as IProductSku;
+}
+
+export async function getSBrands({ active }: { active: boolean }) {
+  const sql = `SELECT * FROM SBrand 
+    WHERE active = ${active ? 1 : 0} 
+    ORDER BY id;`;
+
+  return (await query(sql)) as ESBrand[];
+}
+
+export async function getTBrands({ active }: { active: boolean }) {
+  const sql = `SELECT * FROM TBrand 
+    WHERE active = ${active ? 1 : 0} 
+    ORDER BY id;`;
+
+  return (await query(sql)) as ETBrand[];
+}
+
+export async function insertSBrand({ sBrand }: { sBrand: SBrand }) {
+  const { name, slug, seo_title, seo_description, seo_keywords } = sBrand;
+  const sql = `INSERT INTO SBrand(
+    name, 
+    slug, 
+    seoTitle, 
+    seoDescription, 
+    seoKeywords, 
+    createDate, 
+    active) 
+    VALUES(
+    ?, ?, ?, ?, ?, now(), 1
+  );`;
+
+  return (await run(sql, [name, slug, seo_title, seo_description, seo_keywords])) as ESBrand;
+}
+
+export async function updateSBrand({ sBrand }: { sBrand: SBrand }) {
+  const { id, name, slug, seo_title, seo_description, seo_keywords } = sBrand;
+  const sql = `UPDATE SBrand 
+  SET 
+    name = ?,
+    slug = ?,
+    seoTitle = ?,
+    seoDescription = ?,
+    seoKeywords = ?,
+    updateDate = now(),
+    active = 1
+  WHERE id = ?`;
+
+  return (await run(sql, [name, slug, seo_title, seo_description, seo_keywords, id])) as ESBrand;
 }
 
 export async function getIProductSkusByIntegration(integrationId: number) {
