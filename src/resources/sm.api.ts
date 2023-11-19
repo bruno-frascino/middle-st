@@ -1,6 +1,6 @@
 import config from 'config';
 import log from '../logger';
-import { Product, Sku, SmToken } from '../model/sm.model';
+import { Brand, BrandResponse, Product, Sku, SmToken } from '../model/sm.model';
 import { ErrorHandlerParams, fetchWrapper } from '../shared/api/fetchApi';
 import { ErrorCategory, HttpStatus, MiddleError } from '../shared/errors/MiddleError';
 import { EVarNames } from '../shared/utils/utils';
@@ -109,6 +109,17 @@ export async function postRefresh(previousAccessToken: string, fetchFn = fetchWr
     expiresIn: refreshedToken.expires_in,
     tokenType: refreshedToken.token_type,
   };
+}
+
+export async function getBrands({
+  accessToken,
+  fetchFn = fetchWrapper,
+}: {
+  accessToken: string;
+  fetchFn?: Function;
+}): Promise<BrandResponse> {
+  const url = `${baseUrl}/api/v1/brands`;
+  return smFetch({ url, method: 'GET', fetchFn, accessToken });
 }
 
 export async function postSku({
