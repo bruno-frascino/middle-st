@@ -1,10 +1,16 @@
 import config from 'config';
 import { Act, Notification, Product, Scope, TrayToken, Variant } from '../model/tray.model';
 import log from '../logger';
-import { getOrderedNotifications, insertNotification, updateTConnectionDetails } from '../db/db';
+import {
+  getAllActiveIntegrations,
+  getOrderedNotifications,
+  getTBrands,
+  insertNotification,
+  updateTConnectionDetails,
+} from '../db/db';
 import { Notification as ENotification, Integration } from '../model/db.model';
 import { EVarNames, convertStringToUnixTime, getCurrentUnixTime } from '../shared/utils/utils';
-import { getAuth, getProduct, getVariant, postAuth, putVariant } from '../resources/tray.api';
+import { getAuth, getBrands, getProduct, getVariant, postAuth, putVariant } from '../resources/tray.api';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 import { getIntegrationDetails } from './middle.service';
 
@@ -236,6 +242,21 @@ export async function getTrayVariant(variantId: number, integration: Integration
   return getVariant({ storePath: integration.sellerTStorePath || '', variantId, accessToken });
 }
 
+export async function getFreshTrayBrands() {
+  const integrations = await getAllActiveIntegrations();
+  if (integrations && integrations.length > 0) {
+    // TODO check - any integration, any seller brings all the brands?
+    const accessToken = await provideTrayAccessToken(integrations[0]);
+    const brandResponse = await getBrands({ accessToken, storePath: integrations[0].sellerTStorePath || '' });
+    return brandResponse ? brandResponse.Brands.map((brandWrapper) => brandWrapper.Brand) : [];
+  }
+  return [];
+}
+
+export async function getActiveStoredTrayBrands() {
+  return getTBrands({ active: true });
+}
+
 // First access
 async function getNewAccessToken(accessCode: string, storePath: string): Promise<TrayToken> {
   const key: string = config.get(EVarNames.TRAY_KEY);
@@ -258,7 +279,7 @@ export async function provideTrayAccessToken(integration: Integration): Promise<
     throw new MiddleError(errorMessage, ErrorCategory.BUS);
   }
 
-  // valid connection - no action required
+  // // valid connection - no action required
   if (integration && sellerTAccessToken && hasValidTokens(integration)) {
     log.warn('T existing valid access token');
     return sellerTAccessToken;
@@ -350,9 +371,9 @@ function hasValidTokens(integration: Integration) {
 
   const now = getCurrentUnixTime();
   // log.warn('-- Got here --');
-  // log.warn(`-- now ${now}`);
-  // log.warn(`-- sellerTAccessExpirationDate ${sellerTAccessExpirationDate}`);
-  // log.warn(`-- sellerTRefreshExpirationDate ${sellerTRefreshExpirationDate}`);
+  log.warn(`-- now ${now}`);
+  log.warn(`-- sellerTAccessExpirationDate ${sellerTAccessExpirationDate}`);
+  log.warn(`-- sellerTRefreshExpirationDate ${sellerTRefreshExpirationDate}`);
 
   return (
     sellerTAccessExpirationDate &&

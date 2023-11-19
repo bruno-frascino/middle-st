@@ -5,7 +5,9 @@ import { Act, Scope, Product as TProduct, Variant } from '../model/tray.model';
 import { Condition, Product as SProduct, Sku } from '../model/sm.model';
 import { EVarNames, getCurrentUnixTime } from '../shared/utils/utils';
 import {
+  getActiveStoredTrayBrands,
   getAllNotifications,
+  getFreshTrayBrands,
   getSlimNotifications,
   getTrayProduct,
   getTrayVariant,
@@ -14,9 +16,13 @@ import {
 } from './tray.service';
 import log from '../logger';
 import {
+  Action,
   createProduct as createSProduct,
   createSmSku,
   deleteSmSku,
+  getActiveStoredSmBrands,
+  getFreshSmBrands,
+  getSBrandActionGroups,
   getSmSku,
   provideSmAccessToken,
   removeSmProduct,
@@ -26,18 +32,24 @@ import {
 import {
   createIProduct,
   createIProductSku,
-  getAllIntegrations,
+  getAllActiveIntegrations,
+  getBrandMapByTName,
+  getCategoryMapByTId,
+  getCategoryMapByTName,
   getIProductByT,
   getIProductSkuByT,
   getIProductSkuByVariant,
   getIProductSkusByIntegration,
   getIntegrationById,
   getIntegrationByStoreCode,
+  insertIError,
   insertIntegration,
+  insertSBrand,
   updateIProduct,
   updateIProductSku,
   updateIProductSkuByIProduct,
   updateIntegrationByStoreCode,
+  updateSBrand,
 } from '../db/db';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 
@@ -70,7 +82,7 @@ export async function getIntegrationDetails(storeCode: number) {
 export async function initializeSystemConnections() {
   log.info(`Initializing System Connections`);
   // GET INTEGRATIONS
-  const integrations = await getAllIntegrations();
+  const integrations = await getAllActiveIntegrations();
   if (!integrations || integrations.length === 0) {
     log.warn(`No Integrations could be found`);
     return;
@@ -124,6 +136,7 @@ export async function monitorTrayNotifications() {
       throw new MiddleError(`Integration not found for id: ${notification.integrationId}`, ErrorCategory.BUS);
     }
     const integration = integrations[0];
+    let errorMessage = '';
 
     switch (`${notification.scopeName}-${notification.act}`) {
       case `${Scope.ORDER}-${Act.INSERT}`:
@@ -144,9 +157,10 @@ export async function monitorTrayNotifications() {
         try {
           // GET TRAY PRODUCT (API)
           const tProduct = await getTrayProduct(notification.scopeId, integration);
+          log.warn(`T Product : ${JSON.stringify(tProduct)}`);
           tProductId = tProduct.Product.id;
           // POPULATE SM PRODUCT OBJECT
-          const sProduct = convertToSProduct(tProduct);
+          const sProduct = await convertToSProduct(tProduct);
           // CREATE SM PRODUCT (API)
           const apiSProduct = await createSProduct(sProduct, integration);
           // CREATE DB REGISTER (Seller x SM Id x Tray Id)
@@ -160,11 +174,10 @@ export async function monitorTrayNotifications() {
             `A new product has been integrated. [Integration:${iProduct.integrationId}, tProduct:${iProduct.tProductId}, sProduct:${iProduct.sProductId}}`,
           );
         } catch (error) {
-          log.error(
-            `Failed to integrate a new Product: ${notification.scopeId} for Integration: ${
-              notification.integrationId
-            }. Error: ${JSON.stringify(error)}`,
-          );
+          errorMessage = `Failed to integrate a new Product: ${notification.scopeId} for Integration: ${
+            notification.integrationId
+          }. Error: ${JSON.stringify(error)}`;
+          log.error(errorMessage);
         }
         break;
       }
@@ -188,7 +201,7 @@ export async function monitorTrayNotifications() {
           // GET SM PRODUCT
           // const sProduct = await getSProductById(iProduct.sProductId, notification);
           // POPULATE SM PRODUCT OBJECT
-          const sProductToUpdate = convertToSProduct(tProduct);
+          const sProductToUpdate = await convertToSProduct(tProduct);
           // UPDATE SM PRODUCT (API)
           // sProductToUpdate.id = sProduct.id;
           sProductToUpdate.id = iProduct.sProductId;
@@ -200,9 +213,8 @@ export async function monitorTrayNotifications() {
             `A product has been updated: [Integration:${iProduct.integrationId}, tProduct:${iProduct.tProductId}, sProduct:${iProduct.sProductId}}`,
           );
         } catch (error) {
-          log.error(
-            `Failed to update Product: ${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`,
-          );
+          errorMessage = `Failed to update Product: ${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`;
+          log.error(errorMessage);
         }
         break;
       }
@@ -222,11 +234,8 @@ export async function monitorTrayNotifications() {
           await updateIProduct({ iProductId: iProduct.id, isDeleteState: true });
           await updateIProductSkuByIProduct({ iProductId: iProduct.id, isDeleteState: true });
         } catch (error) {
-          // TODO - Register any integration that failed in a table, not just log, with enough info to trace back to the initial notification
-          // consider a scenario where failed notifications can be retried automatically by the system
-          log.error(
-            `Failed to delete Product: ${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`,
-          );
+          errorMessage = `Failed to delete Product: ${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`;
+          log.error(errorMessage);
         }
         break;
       }
@@ -265,9 +274,8 @@ export async function monitorTrayNotifications() {
             `A new Sku has been integrated. [Integration:${iProduct.integrationId}, tProduct:${iProduct.tProductId}, sProduct:${iProduct.sProductId}, tVariantId: ${variant.Variant.id}, sSkuCode: ${skuToCreate.code_sku}]`,
           );
         } catch (error) {
-          log.error(
-            `Failed to insert a new Variant: ${notification.scopeId} for Product:${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`,
-          );
+          errorMessage = `Failed to insert a new Variant: ${notification.scopeId} for Product:${tProductId} for Integration: ${notification.integrationId}. Error: ${error}`;
+          log.error(errorMessage);
         }
         break;
       }
@@ -310,9 +318,8 @@ export async function monitorTrayNotifications() {
             `A Sku has been updated. [Integration:${notification.integrationId}, iProductId:${skuToUpdate.id}, tVariantId: ${variant.Variant.id}, sSkuId: ${skuToUpdate.id}]`,
           );
         } catch (error) {
-          log.error(
-            `Failed to update Variant: ${notification.scopeId} for Integration: ${notification.integrationId}. Error: ${error}`,
-          );
+          errorMessage = `Failed to update Variant: ${notification.scopeId} for Integration: ${notification.integrationId}. Error: ${error}`;
+          log.error(errorMessage);
         }
         break;
       }
@@ -324,9 +331,8 @@ export async function monitorTrayNotifications() {
           // DELETE SM SKU
           await deleteSmSku({ skuId: iProductSku.sSkuId, integration });
         } catch (error) {
-          log.error(
-            `Failed to delete Variant: ${notification.scopeId} for Integration: ${notification.integrationId}. Error: ${error}`,
-          );
+          errorMessage = `Failed to delete Variant: ${notification.scopeId} for Integration: ${notification.integrationId}. Error: ${error}`;
+          log.error(errorMessage);
         }
         break;
       }
@@ -334,6 +340,10 @@ export async function monitorTrayNotifications() {
         log.warn(
           `Notification with scope-action: ${notification.scopeName}-${notification.act} could not be processed`,
         );
+    }
+
+    if (errorMessage !== '') {
+      await insertIError({ errorMessage });
     }
   }
 
@@ -345,7 +355,7 @@ export async function monitorSmChanges() {
   const start = Date.now();
   log.info(`SM monitor checking product changes`);
   // GET ALL INTEGRATIONS
-  const integrations = await getAllIntegrations();
+  const integrations = await getAllActiveIntegrations();
   // const iProducts = await getAllIProducts();
   // log.info(`SM Changes Monitor has started - Products list size: ${iProducts.length}`);
 
@@ -402,69 +412,101 @@ export async function monitorSmChanges() {
 }
 
 // TODO - Product conversion
-export function convertToSProduct(tProduct: TProduct): SProduct {
+export async function convertToSProduct(tProduct: TProduct): Promise<SProduct> {
   // id ?? TODO - Create vs Update
-  // TODO - Check what todo with these fields with no correlation:
   // const attributes = []; // check example in SM to try to correlate to tray
-  // const reference_code = tProduct.Product.reference // ??
-  const min_wholesale_quantity = 1; // ??
 
   // SIMPLE conversion
   const {
     available,
     brand_id,
+    brand,
     category_id,
+    category_name,
+    related_categories,
+    all_categories,
+    created,
     description,
     ean,
     free_shipping,
+    metatag,
     height,
     length,
     model,
     price,
+    slug,
     promotional_price,
     reference,
     stock,
+    name,
     title,
     video,
     weight,
     width,
+    ProductImage,
   } = tProduct.Product;
 
-  // TODO - Create table for conversation of CATEGORY (SxT) and BRAND (SxT)
-  // Consider User doing it in a friendly user interface. It depends how Category
-  // and brand are registered in Tray - To Find out
+  // const images = [];
+  // if (ProductImage && ProductImage.length > 0) {
+  const images =
+    ProductImage &&
+    ProductImage.length > 0 &&
+    ProductImage.map((productImage, index) => {
+      return {
+        url: productImage.https,
+        sequence: index + 1,
+      };
+    });
+  // for (let i = 0; i < ProductImage.length; i += 1) {
+  //   const productImage = ProductImage[i];
+  //   images.push({
+  //     url: productImage.https,
+  //     sequence: i + 1,
+  //   });
+  // }
+  // }
 
-  // COMPLEX conversion
   const sProduct: SProduct = {
     id: 0, // check
-    title,
-    publish: true, // check
-    categories: convertToSCategory(category_id),
-    attributes: [], // check
+    title: name,
+    publish: true, // default?
+    active: true, // default? would get to this point?
+    slug,
+    old_url: '', // no related field
     description,
-    brand_id: convertToSBrand(brand_id),
+    categories: await convertToSCategories({ category_id, category_name, related_categories }), // TODO
+    attributes: [], // check // TODO
+    brand_id: await convertToSBrand(brand_id, brand), // TODO
     model,
-    reference_code: reference,
+    reference_code: reference, // reference to the product
+    // block: '', // no equivalent atm
+    created_at: created,
     condition: Condition.NOVO, // check
-    min_wholesale_quantity, // check
+    supports_seller_contact: true, // hardcoded
     url_video: video,
     shipping: {
       free: free_shipping === 1,
-      enabled: true, // check
+      enabled: true,
     },
     seo: {
-      // metatag maybe
+      // metatag maybe - Check with Tray
       title: '',
-      description: '',
-      keywords: '',
+      description: metatag?.description,
+      keywords: metatag?.type,
     },
-    google_shopping: {
-      enable: false,
-      mpn: '',
-      age_group: '', // infant
-      gender: '', // male
-      google_product_category: '',
+    // No related fields from Tray
+    // google_shopping: {
+    //   enable: false,
+    //   mpn: '',
+    //   age_group: '', // infant
+    //   gender: '', // male
+    //   google_product_category: '',
+    // },
+    gallery: {
+      video,
+      images: images || [],
     },
+
     skus: [
       {
         stock,
@@ -498,14 +540,87 @@ export function convertToSProduct(tProduct: TProduct): SProduct {
   return sProduct;
 }
 
-export function convertToSBrand(tBrand_id: number) {
-  // TODO
-  return tBrand_id + 1;
+export async function convertToSBrand(tBrandId: number, tBrandName: string) {
+  // TODO - check by Id first
+  // Try to find by name
+  const brandMap = await getBrandMapByTName({ tBrandName });
+  log.warn(`S Brand found: ${JSON.stringify(brandMap)}`);
+  // If Not found Create new Brand in S
+  if (!brandMap || (Array.isArray(brandMap) && brandMap.length === 0)) {
+    const error = `Could not find a Brand for ${tBrandName}`;
+    throw new MiddleError(error, ErrorCategory.BUS);
+  }
+  // Get S Id
+  const { sBrandId } = brandMap;
+  // Get new S Id and add new record to Map
+  return sBrandId;
 }
 
-export function convertToSCategory(tCategory_id: number) {
-  // TODO
-  return [tCategory_id + 1];
+export async function convertToSCategories({
+  category_id,
+  category_name,
+  related_categories,
+}: {
+  category_id: number;
+  category_name: string;
+  related_categories: number[];
+}) {
+  const convertedCategories = [];
+  // convert principal category first by name
+  if (category_id && category_name) {
+    const sCategoryId = await convertToSCategoryByName(category_name);
+    log.warn(`sCategory found: ${sCategoryId}`);
+    convertedCategories.push(sCategoryId);
+  }
+
+  const errorMessages = [];
+  // convert a list for categories from Tray to SM
+  if (related_categories && related_categories.length > 0) {
+    const promises = related_categories.map(async (id) => {
+      try {
+        await convertToSCategoryById(id);
+      } catch (error) {
+        errorMessages.push(`Couldn't find S related category for T category ${id}`);
+      }
+    });
+    // TODO handle error
+    Promise.all(promises)
+      .then((res) => {
+        log.warn(`Promise all response for Categories conversion: ${JSON.stringify(res)}`);
+      })
+      .catch((error) => {
+        log.error(JSON.stringify(error));
+      });
+  }
+
+  return convertedCategories;
+}
+
+async function convertToSCategoryByName(tCategoryName: string) {
+  const categoryMap = await getCategoryMapByTName({ tCategoryName });
+  log.warn(`S Category found: ${JSON.stringify(categoryMap)}`);
+  //
+  if (!categoryMap || (Array.isArray(categoryMap) && categoryMap.length === 0)) {
+    const error = `Could not find a Category for ${tCategoryName}`;
+    throw new MiddleError(error, ErrorCategory.BUS);
+  }
+  // Get S Id
+  const { sCategoryId } = categoryMap;
+  // Get new S Id and add new record to Map
+  return sCategoryId;
+}
+
+async function convertToSCategoryById(tCategoryId: number) {
+  // Try to find by name
+  const categoryMap = await getCategoryMapByTId({ tCategoryId });
+  log.warn(`S Category found: ${JSON.stringify(categoryMap)}`);
+  // fail if not found
+  if (!categoryMap || (Array.isArray(categoryMap) && categoryMap.length === 0)) {
+    const error = `Could not find an SM Category for T category id ${tCategoryId}`;
+    throw new MiddleError(error, ErrorCategory.BUS);
+  }
+
+  return categoryMap.sCategoryId;
 }
 
 function convertToSSku(variant: Variant) {
@@ -573,6 +688,87 @@ export async function registerIntegratedProduct(integrationId: number, tProductI
   return createIProduct(iProductDetails);
   // TODO - check Unhappy or what to do with the returned value
   // we need to log it
+}
+
+export async function getBrandSyncDetails() {
+  // const promises = [getFreshSmBrands(), getActiveStoredSmBrands(), getFreshTrayBrands(), getActiveStoredTrayBrands()];
+  // const promiseResult = await Promise.all(promises);
+
+  // get SM Brands
+  const freshSBrands = await getFreshSmBrands();
+  // get DB SM Brands
+  const storedSBrands = await getActiveStoredSmBrands();
+
+  // get T Brands
+  const freshTBrands = await getFreshTrayBrands();
+
+  // get DB T Brands
+  const storedTBrands = await getActiveStoredTrayBrands();
+
+  return {
+    apiSmBrands: freshSBrands,
+    dbSmBrands: storedSBrands,
+    apiTrayBrands: freshTBrands,
+    dbTrayBrands: storedTBrands,
+  };
+}
+
+export async function manageBrandSynchronization() {
+  // UPDATE SM Brand Table
+  // get T Brands
+  // save in a table
+  // check matches from database
+  // save result in the map table
+  // return results
+  // previous sync attempt
+  // records not matched from S
+  // records not matched from T
+  // records matched
+}
+
+export async function updateSBrandReference() {
+  // get SM Brands
+  const freshSBrands = await getFreshSmBrands();
+  // get DB SM Brands
+  const storedSBrands = await getActiveStoredSmBrands();
+
+  const sBrandActionMap = getSBrandActionGroups({ freshSBrands, storedSBrands });
+
+  console.log(JSON.stringify(sBrandActionMap));
+
+  // // Insert
+  // const insertGroup = sBrandActionMap.get(Action.INSERT);
+  // if (insertGroup) {
+  //   const insertedBrands = await Promise.all(
+  //     insertGroup.map(async (sBrand) => {
+  //       try {
+  //         const newSBrand = await insertSBrand({ sBrand });
+  //         return newSBrand;
+  //       } catch (err) {
+  //         log.error(`Brand ${sBrand?.name} failed to be inserted with error: ${err}`);
+  //         return null;
+  //       }
+  //     }),
+  //   );
+  // }
+
+  // // Update
+  // const updateGroup = sBrandActionMap.get(Action.UPDATE);
+  // if (updateGroup) {
+  //   const updatedBrands = await Promise.all(
+  //     updateGroup.map(async (sBrand) => {
+  //       try {
+  //         const newSBrand = await updateSBrand({ sBrand });
+  //         return newSBrand;
+  //       } catch (err) {
+  //         log.error(`Brand ${sBrand?.name} failed to be updated with error: ${err}`);
+  //         return null;
+  //       }
+  //     }),
+  //   );
+  // }
+
+  // Delete needs attention // TODO - What to do about delete?
 }
 
 // TODO

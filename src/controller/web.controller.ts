@@ -1,9 +1,17 @@
 import { NextFunction, Request, Response } from 'express';
+import config from 'config';
 import log from '../logger';
 import { Notification, isNotification } from '../model/tray.model';
 import { getConsumerKey, handleNotification } from '../services/tray.service';
-import { createIntegration, getIntegrationDetails, updateIntegrationDetails } from '../services/middle.service';
+import {
+  createIntegration,
+  getBrandSyncDetails,
+  getIntegrationDetails,
+  manageBrandSynchronization,
+  updateIntegrationDetails,
+} from '../services/middle.service';
 import { isValidIntegration } from '../model/db.model';
+import { EVarNames } from '../shared/utils/utils';
 
 export async function notificationHandler(req: Request, res: Response, next: NextFunction) {
   try {
@@ -97,6 +105,47 @@ export async function getIntegrationByStoreCodeHandler(req: Request, res: Respon
     });
   } catch (err) {
     log.error(`Unable to get Integration data for storeCode ${storeCodeParam} with error: ${err}`);
+    next(err);
+  }
+}
+
+export async function syncBrandHandler(req: Request, res: Response, next: NextFunction) {
+  // Validate Input
+
+  try {
+    const brandInformation = await getBrandSyncDetails();
+
+    res.status(200).json({
+      brandInformation,
+    });
+  } catch (err) {
+    log.error(`Unable to fetch Brand sync details with error: ${err}`);
+    next(err);
+  }
+}
+
+export async function syncCategoriesHandler(req: Request, res: Response, next: NextFunction) {
+  // Validate Input
+  const passParam = req.query.pass;
+  const passKey: string = config.get(EVarNames.PASS_KEY);
+
+  try {
+    if (!passParam || typeof passParam !== 'string' || passParam !== passKey) {
+      res.status(400).json({ message: 'Bad request' });
+      return;
+    }
+
+    const result = await manageBrandSynchronization();
+
+    const responseData = {
+      result,
+    };
+
+    res.status(200).json({
+      responseData,
+    });
+  } catch (err) {
+    log.error(`Unable to sync Categories with error: ${err}`);
     next(err);
   }
 }

@@ -1,11 +1,12 @@
 import log from '../logger';
-import { Integration } from '../model/db.model';
-import { Product, Sku, SmToken } from '../model/sm.model';
-import { addToCurrentTime, getCurrentUnixTime } from '../shared/utils/utils';
-import { updateSConnectionDetails } from '../db/db';
+import { SBrand as ESBrand, Integration } from '../model/db.model';
+import { Brand, Product, Sku, SmToken } from '../model/sm.model';
+import { addToCurrentTime, convertESBrandToSBrand, getCurrentUnixTime } from '../shared/utils/utils';
+import { getAllActiveIntegrations, getSBrands, updateSConnectionDetails } from '../db/db';
 import {
   deleteProduct,
   deleteSku,
+  getBrands,
   getProduct,
   getSku,
   patchSku,
@@ -178,4 +179,78 @@ export async function deleteSmSku({ skuId, integration }: { skuId: number; integ
 export async function getSmSku({ skuId, integration }: { skuId: number; integration: Integration }) {
   const accessToken = await provideSmAccessToken(integration);
   return getSku({ skuId, accessToken });
+}
+
+export async function getFreshSmBrands() {
+  const integrations = await getAllActiveIntegrations();
+  // any integration - Brands are independent of sellers
+  const accessToken = await provideSmAccessToken(integrations[0]);
+  const brandResponse = await getBrands({ accessToken });
+  return brandResponse ? brandResponse.data : [];
+}
+
+export async function getActiveStoredSmBrands() {
+  return getSBrands({ active: true });
+}
+
+/**
+ * 
+  [D	2, D,	4, 5, D, 7, 8]  FRESH
+
+  [1, 2, 3, 4, I, 6, 7, I]  DB
+
+  F(F->D) === T - UPDATE
+  F(F->D) === F - INSERT
+
+  DB whatever is left in the DB - (Delete)
+ */
+export function getSBrandActionGroups({
+  freshSBrands,
+  storedSBrands,
+}: {
+  freshSBrands: Brand[];
+  storedSBrands: ESBrand[];
+}) {
+  const actionMap = new Map<Action, Brand[]>();
+  const sortById = (a: Brand, b: Brand) => {
+    return a.id - b.id;
+  };
+
+  // First load
+  if (storedSBrands.length === 0) {
+    actionMap.set(Action.INSERT, freshSBrands.sort(sortById));
+  } else {
+    const updateGroup: Brand[] = [];
+    const insertGroup: Brand[] = [];
+    let deleteGroup: Brand[] = [];
+    // compare
+    freshSBrands.forEach((freshBrand) => {
+      const dbBrand = storedSBrands.find((storedBrand) => storedBrand.id === freshBrand.id);
+      // update
+      if (dbBrand) {
+        updateGroup.push(freshBrand);
+        const index = storedSBrands.indexOf(dbBrand);
+        storedSBrands.splice(index, 1); // remove from stored as it'a a reference
+        // insert
+      } else {
+        insertGroup.push(freshBrand);
+      }
+    });
+
+    // delete group
+    if (storedSBrands && storedSBrands.length > 0) {
+      deleteGroup = storedSBrands.map((smBrand) => convertESBrandToSBrand(smBrand));
+    }
+
+    actionMap.set(Action.INSERT, insertGroup);
+    actionMap.set(Action.UPDATE, updateGroup);
+    actionMap.set(Action.DELETE, deleteGroup);
+  }
+  return actionMap;
+}
+
+export enum Action {
+  INSERT = 'INSERT',
+  UPDATE = 'UPDATE',
+  DELETE = 'DELETE',
 }

@@ -1,3 +1,6 @@
+import { SBrand as ESBrand } from '../../model/db.model';
+import { Brand as SBrand } from '../../model/sm.model';
+
 // 2021-04-01 11:58:21
 export function convertStringToUnixTime(dateString: string) {
   const two = dateString.split(' ');
@@ -41,4 +44,32 @@ export enum EVarNames {
   TRAY_MONITOR_INTERVAL = 'T_MONITOR_INTERVAL',
   TRAY_KEY = 'T_KEY',
   TRAY_SECRET = 'T_SECRET',
+  PASS_KEY = 'PASS_KEY',
+}
+
+export function convertSBrandToESBrand(sBrand: SBrand): ESBrand | undefined {
+  if (sBrand) {
+    return {
+      id: sBrand.id,
+      name: sBrand.name,
+      slug: sBrand.slug,
+      seoTitle: sBrand.seo_title,
+      seoDescription: sBrand.seo_description,
+      seoKeywords: sBrand.seo_keywords,
+      createDate: new Date().toISOString(),
+      active: 1,
+    };
+  }
+  return undefined;
+}
+
+export function convertESBrandToSBrand(esBrand: ESBrand): SBrand {
+  return {
+    id: esBrand.id,
+    name: esBrand.name,
+    slug: esBrand.slug,
+    seo_title: esBrand.seoTitle,
+    seo_description: esBrand.seoDescription,
+    seo_keywords: esBrand.seoKeywords,
+  };
 }
