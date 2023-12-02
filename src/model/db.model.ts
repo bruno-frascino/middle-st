@@ -97,10 +97,38 @@ export interface SBrand {
   active: number;
 }
 
+export interface SCategory {
+  id: number;
+  parentId: number;
+  referenceCode: string;
+  name: string;
+  slug: string;
+  seoTitle: string;
+  seoDescription: string;
+  seoKeywords: string;
+  seoH1: string;
+  description: string;
+  imageUrl: string;
+  createDate: string;
+  updateDate?: string;
+  active: number;
+}
+
 export interface TBrand {
   id: number;
   slug: string;
   brand: string;
+  createDate: string;
+  updateDate?: string;
+  active: number;
+}
+
+export interface TCategory {
+  id: number;
+  parentId: number;
+  name: string;
+  smallDescription: string;
+  slug: string;
   createDate: string;
   updateDate?: string;
   active: number;

@@ -7,7 +7,9 @@ import {
   Category_Map,
   Notification as ENotification,
   SBrand as ESBrand,
+  SCategory as ESCategory,
   TBrand as ETBrand,
+  TCategory as ETCategory,
   IError,
   IProduct,
   IProductSku,
@@ -425,12 +427,28 @@ export async function getSBrands({ active }: { active: boolean }) {
   return (await query(sql)) as ESBrand[];
 }
 
+export async function getSCategories({ active }: { active: boolean }) {
+  const sql = `SELECT * FROM SCategory 
+    WHERE active = ${active ? 1 : 0} 
+    ORDER BY id;`;
+
+  return (await query(sql)) as ESCategory[];
+}
+
 export async function getTBrands({ active }: { active: boolean }) {
   const sql = `SELECT * FROM TBrand 
     WHERE active = ${active ? 1 : 0} 
     ORDER BY id;`;
 
   return (await query(sql)) as ETBrand[];
+}
+
+export async function getTCategories({ active }: { active: boolean }) {
+  const sql = `SELECT * FROM TCategory 
+    WHERE active = ${active ? 1 : 0} 
+    ORDER BY id;`;
+
+  return (await query(sql)) as ETCategory[];
 }
 
 export async function insertSBrand({ sBrand }: { sBrand: SBrand }) {
