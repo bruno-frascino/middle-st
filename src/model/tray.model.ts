@@ -156,7 +156,7 @@ export interface Product {
 interface Image {
   http: string;
   https: string;
-  thumbs: Thumbs;
+  thumbs?: Thumbs;
 }
 
 interface Thumbs {
@@ -232,13 +232,7 @@ interface PaymentDetails {
 }
 
 export interface BrandResponse {
-  paging: {
-    total: number;
-    page: number;
-    offset: number;
-    limit: number;
-    maxLimit: number;
-  };
+  paging: Paging;
   sort: any[];
   availableFilters: string[];
   appliedFilters: [];
@@ -252,4 +246,33 @@ export interface Brand {
   id: number;
   slug: string;
   brand: string;
+}
+
+interface Paging {
+  total: number;
+  page: number;
+  offset: number;
+  limit: number;
+  maxLimit: number;
+}
+
+export interface CategoriesResponse {
+  paging: Paging;
+  sort: any[];
+  availableFilters: string[];
+  appliedFilters: [];
+  Categories: CategoriesWrapper[];
+}
+
+interface CategoriesWrapper {
+  Category: Category;
+}
+
+interface Category {
+  id: number;
+  parent_id: number;
+  name: string;
+  small_description: string;
+  Images?: Image[];
+  slug: string;
 }

@@ -1,5 +1,5 @@
 import log from '../logger';
-import { BrandResponse, Product, TrayToken, Variant } from '../model/tray.model';
+import { BrandResponse, CategoriesResponse, Product, TrayToken, Variant } from '../model/tray.model';
 import { ErrorHandlerParams, fetchWrapper } from '../shared/api/fetchApi';
 import { ErrorCategory, HttpStatus, MiddleError } from '../shared/errors/MiddleError';
 
@@ -110,6 +110,23 @@ export async function getBrands({
   fetchFn?: Function;
 }): Promise<BrandResponse> {
   const url = `${storePath}/products/brands?access_token=${accessToken}`;
+  return trayFetch({
+    url,
+    method: 'GET',
+    fetchFn,
+  });
+}
+
+export async function getCategories({
+  storePath,
+  accessToken,
+  fetchFn = fetchWrapper,
+}: {
+  storePath: string;
+  accessToken: string;
+  fetchFn?: Function;
+}): Promise<CategoriesResponse> {
+  const url = `${storePath}/categories?access_token=${accessToken}`;
   return trayFetch({
     url,
     method: 'GET',

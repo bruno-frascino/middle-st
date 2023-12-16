@@ -3,7 +3,7 @@ import {
   getIntegrationByStoreCodeHandler,
   initiateIntegrationHandler,
   notificationHandler,
-  syncBrandHandler,
+  syncBrandsHandler,
   syncCategoriesHandler,
   updateIntegrationHandler,
 } from './controller/web.controller';
@@ -28,8 +28,8 @@ export default function (app: Express) {
   app.get('/api/integration', getIntegrationByStoreCodeHandler);
 
   //
-  app.get('/api/category/synchronization', syncCategoriesHandler);
+  app.get('/api/synchronization/category', syncCategoriesHandler);
 
   //
-  app.get('/api/brand/synchronization', syncBrandHandler);
+  app.get('/api/synchronization/brand', syncBrandsHandler);
 }

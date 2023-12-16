@@ -1,16 +1,17 @@
 import config from 'config';
-import { Act, Notification, Product, Scope, TrayToken, Variant } from '../model/tray.model';
+import { Act, Notification, Product, TrayToken, Variant } from '../model/tray.model';
 import log from '../logger';
 import {
   getAllActiveIntegrations,
   getOrderedNotifications,
   getTBrands,
+  getTCategories,
   insertNotification,
   updateTConnectionDetails,
 } from '../db/db';
 import { Notification as ENotification, Integration } from '../model/db.model';
 import { EVarNames, convertStringToUnixTime, getCurrentUnixTime } from '../shared/utils/utils';
-import { getAuth, getBrands, getProduct, getVariant, postAuth, putVariant } from '../resources/tray.api';
+import { getAuth, getBrands, getCategories, getProduct, getVariant, postAuth, putVariant } from '../resources/tray.api';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 import { getIntegrationDetails } from './middle.service';
 
@@ -253,8 +254,23 @@ export async function getFreshTrayBrands() {
   return [];
 }
 
+export async function getFreshTrayCategories() {
+  const integrations = await getAllActiveIntegrations();
+  if (integrations && integrations.length > 0) {
+    // TODO check - any integration, any seller brings all the categories?
+    const accessToken = await provideTrayAccessToken(integrations[0]);
+    const categoriesResponse = await getCategories({ accessToken, storePath: integrations[0].sellerTStorePath || '' });
+    return categoriesResponse ? categoriesResponse.Categories.map((categoryWrapper) => categoryWrapper.Category) : [];
+  }
+  return [];
+}
+
 export async function getActiveStoredTrayBrands() {
   return getTBrands({ active: true });
+}
+
+export async function getActiveStoredTrayCategories() {
+  return getTCategories({ active: true });
 }
 
 // First access
@@ -336,12 +352,13 @@ function hasExpiredTokens(integration: Integration) {
   }
 
   const now = getCurrentUnixTime();
-  return (
-    sellerTAccessExpirationDate &&
-    sellerTAccessExpirationDate < now &&
-    sellerTRefreshExpirationDate &&
-    sellerTRefreshExpirationDate < now
-  );
+  // return (
+  //   sellerTAccessExpirationDate &&
+  //   sellerTAccessExpirationDate < now &&
+  //   sellerTRefreshExpirationDate &&
+  //   sellerTRefreshExpirationDate < now
+  // );
+  return true;
 }
 
 function hasOnlyAccessTokenExpired(integration: Integration) {

@@ -6,8 +6,10 @@ import { Condition, Product as SProduct, Sku } from '../model/sm.model';
 import { EVarNames, getCurrentUnixTime } from '../shared/utils/utils';
 import {
   getActiveStoredTrayBrands,
+  getActiveStoredTrayCategories,
   getAllNotifications,
   getFreshTrayBrands,
+  getFreshTrayCategories,
   getSlimNotifications,
   getTrayProduct,
   getTrayVariant,
@@ -16,12 +18,13 @@ import {
 } from './tray.service';
 import log from '../logger';
 import {
-  Action,
   createProduct as createSProduct,
   createSmSku,
   deleteSmSku,
   getActiveStoredSmBrands,
+  getActiveStoredSmCategories,
   getFreshSmBrands,
+  getFreshSmCategories,
   getSBrandActionGroups,
   getSmSku,
   provideSmAccessToken,
@@ -710,6 +713,29 @@ export async function getBrandSyncDetails() {
     dbSmBrands: storedSBrands,
     apiTrayBrands: freshTBrands,
     dbTrayBrands: storedTBrands,
+  };
+}
+
+export async function getCategorySyncDetails() {
+  // const promises = [getFreshSmBrands(), getActiveStoredSmBrands(), getFreshTrayBrands(), getActiveStoredTrayBrands()];
+  // const promiseResult = await Promise.all(promises);
+
+  // get SM Categories
+  const freshSCategories = await getFreshSmCategories();
+  // get DB SM Categories
+  const storedSCategories = await getActiveStoredSmCategories();
+
+  // get T Categories
+  const freshTCategories = await getFreshTrayCategories();
+
+  // get DB T Categories
+  const storedTCategories = await getActiveStoredTrayCategories();
+
+  return {
+    apiSmCategories: freshSCategories,
+    dbSmCategories: storedSCategories,
+    apiTrayCategories: freshTCategories,
+    dbTrayCategories: storedTCategories,
   };
 }
 

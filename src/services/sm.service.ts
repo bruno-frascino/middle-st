@@ -2,11 +2,12 @@ import log from '../logger';
 import { SBrand as ESBrand, Integration } from '../model/db.model';
 import { Brand, Product, Sku, SmToken } from '../model/sm.model';
 import { addToCurrentTime, convertESBrandToSBrand, getCurrentUnixTime } from '../shared/utils/utils';
-import { getAllActiveIntegrations, getSBrands, updateSConnectionDetails } from '../db/db';
+import { getAllActiveIntegrations, getSBrands, getSCategories, updateSConnectionDetails } from '../db/db';
 import {
   deleteProduct,
   deleteSku,
   getBrands,
+  getCategories,
   getProduct,
   getSku,
   patchSku,
@@ -189,8 +190,19 @@ export async function getFreshSmBrands() {
   return brandResponse ? brandResponse.data : [];
 }
 
+export async function getFreshSmCategories() {
+  const integrations = await getAllActiveIntegrations();
+  const accessToken = await provideSmAccessToken(integrations[0]);
+  const categoryResponse = await getCategories({ accessToken });
+  return categoryResponse ? categoryResponse.data : [];
+}
+
 export async function getActiveStoredSmBrands() {
   return getSBrands({ active: true });
+}
+
+export async function getActiveStoredSmCategories() {
+  return getSCategories({ active: true });
 }
 
 /**

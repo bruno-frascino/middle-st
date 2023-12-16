@@ -1,17 +1,15 @@
 import { NextFunction, Request, Response } from 'express';
-import config from 'config';
 import log from '../logger';
 import { Notification, isNotification } from '../model/tray.model';
 import { getConsumerKey, handleNotification } from '../services/tray.service';
 import {
   createIntegration,
   getBrandSyncDetails,
+  getCategorySyncDetails,
   getIntegrationDetails,
-  manageBrandSynchronization,
   updateIntegrationDetails,
 } from '../services/middle.service';
 import { isValidIntegration } from '../model/db.model';
-import { EVarNames } from '../shared/utils/utils';
 
 export async function notificationHandler(req: Request, res: Response, next: NextFunction) {
   try {
@@ -109,9 +107,7 @@ export async function getIntegrationByStoreCodeHandler(req: Request, res: Respon
   }
 }
 
-export async function syncBrandHandler(req: Request, res: Response, next: NextFunction) {
-  // Validate Input
-
+export async function syncBrandsHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const brandInformation = await getBrandSyncDetails();
 
@@ -125,27 +121,14 @@ export async function syncBrandHandler(req: Request, res: Response, next: NextFu
 }
 
 export async function syncCategoriesHandler(req: Request, res: Response, next: NextFunction) {
-  // Validate Input
-  const passParam = req.query.pass;
-  const passKey: string = config.get(EVarNames.PASS_KEY);
-
   try {
-    if (!passParam || typeof passParam !== 'string' || passParam !== passKey) {
-      res.status(400).json({ message: 'Bad request' });
-      return;
-    }
-
-    const result = await manageBrandSynchronization();
-
-    const responseData = {
-      result,
-    };
+    const categoriesInformation = await getCategorySyncDetails();
 
     res.status(200).json({
-      responseData,
+      categoriesInformation,
     });
   } catch (err) {
-    log.error(`Unable to sync Categories with error: ${err}`);
+    log.error(`Unable to fetch Categories sync details with error: ${err}`);
     next(err);
   }
 }

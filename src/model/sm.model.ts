@@ -85,16 +85,25 @@ export interface Product {
 
 export interface BrandResponse {
   data: Brand[];
-  meta: {
-    pagination: {
-      total: number;
-      count: number;
-      per_page: number;
-      current_page: number;
-      total_pages: number;
-      links: {};
-    };
-  };
+  meta: Pagination[];
+}
+
+interface Pagination {
+  total: number;
+  count: number;
+  per_page: number;
+  current_page: number;
+  total_pages: number;
+  links: Link[];
+}
+
+interface Link {
+  next: string;
+}
+
+export interface CategoryResponse {
+  data: Category[];
+  meta: Pagination[];
 }
 
 export interface Brand {
@@ -131,7 +140,7 @@ export interface Category {
   seo_h1: string;
   description: string;
   image_url: string;
-  active: number;
+  active: boolean;
 }
 
 export enum Condition {

@@ -10,8 +10,9 @@ const log = logger({
   base: {
     pid: false,
   },
-  level: 'info',
+  level: 'debug',
   timestamp: timestampFormat,
 });
 
 export default log;
+// TODO - include timestamp on logs
