@@ -1,10 +1,18 @@
 import { Express, Request, Response } from 'express';
 import {
+  deleteBrandHandler,
+  deleteCateogryHandler,
   getIntegrationByStoreCodeHandler,
   initiateIntegrationHandler,
+  insertBrandHandler,
+  insertCategoryHandler,
   notificationHandler,
-  syncBrandsHandler,
-  syncCategoriesHandler,
+  syncSmBrandsHandler,
+  syncSmCategoriesHandler,
+  syncTrayBrandsHandler,
+  syncTrayCategoriesHandler,
+  updateBrandHandler,
+  updateCategoryHandler,
   updateIntegrationHandler,
 } from './controller/web.controller';
 
@@ -27,9 +35,24 @@ export default function (app: Express) {
   //
   app.get('/api/integration', getIntegrationByStoreCodeHandler);
 
-  //
-  app.get('/api/synchronization/category', syncCategoriesHandler);
+  // TODO remove
+  // app.get('/api/synchronization/category', syncCategoriesHandler);
+  app.get('/api/synchronization/sm/category/', syncSmCategoriesHandler);
+  app.get('/api/synchronization/tray/category', syncTrayCategoriesHandler);
 
-  //
-  app.get('/api/synchronization/brand', syncBrandsHandler);
+  // TODO remove
+  // app.get('/api/synchronization/brand', syncBrandsHandler);
+  app.get('/api/synchronization/sm/brand', syncSmBrandsHandler);
+  app.get('/api/synchronization/tray/brand', syncTrayBrandsHandler);
+
+  // CRUD Operations for Brand
+  app.post('/api/brand/:systemId', insertBrandHandler);
+  app.put('/api/brand/:systemId', updateBrandHandler);
+  app.delete('/api/brand/:systemId/:id', deleteBrandHandler);
+
+  // TODO
+  // CRUD Operations for Category
+  app.post('/api/category/:systemId', insertCategoryHandler);
+  app.put('/api/category/:systemId', updateCategoryHandler);
+  app.delete('/api/category/:systemId/:id', deleteCateogryHandler);
 }

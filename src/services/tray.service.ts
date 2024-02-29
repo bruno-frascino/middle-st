@@ -1,15 +1,22 @@
 import config from 'config';
-import { Act, Notification, Product, TrayToken, Variant } from '../model/tray.model';
+import { Act, Brand, Notification, Product, TrayToken, Variant } from '../model/tray.model';
 import log from '../logger';
 import {
+  deleteTBrand,
   getAllActiveIntegrations,
+  getAllTBrands,
+  getAllTCategories,
   getOrderedNotifications,
-  getTBrands,
-  getTCategories,
+  getTBrandByBrandId,
+  getTBrandById,
+  getTBrandsByActiveState,
+  getTCategoriesByActiveState,
   insertNotification,
+  insertTBrand,
+  updateTBrand,
   updateTConnectionDetails,
 } from '../db/db';
-import { Notification as ENotification, Integration } from '../model/db.model';
+import { Notification as ENotification, Integration, TBrand } from '../model/db.model';
 import { EVarNames, convertStringToUnixTime, getCurrentUnixTime } from '../shared/utils/utils';
 import { getAuth, getBrands, getCategories, getProduct, getVariant, postAuth, putVariant } from '../resources/tray.api';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
@@ -36,12 +43,12 @@ export async function handleNotification(notification: Notification) {
   log.warn(`Integration Found: ${JSON.stringify(integration)}`);
 
   // Store Notification
-  const id = await insertNotification(notification, integration.id);
-  if (!id) {
+  const recordKey = await insertNotification(notification, integration.id);
+  if (!recordKey) {
     throw new MiddleError('Failed to save notification', ErrorCategory.TECH);
   }
-  log.info(`Notification saved: ${JSON.stringify(id)}`);
-  return id;
+  log.info(`Notification saved: ${JSON.stringify(recordKey.id)}`);
+  return recordKey.id;
 }
 
 export async function getAllNotifications(): Promise<ENotification[]> {
@@ -249,6 +256,7 @@ export async function getFreshTrayBrands() {
     // TODO check - any integration, any seller brings all the brands?
     const accessToken = await provideTrayAccessToken(integrations[0]);
     const brandResponse = await getBrands({ accessToken, storePath: integrations[0].sellerTStorePath || '' });
+    log.info(`Fetched fresh Tray Brands: ${JSON.stringify(brandResponse)}`);
     return brandResponse ? brandResponse.Brands.map((brandWrapper) => brandWrapper.Brand) : [];
   }
   return [];
@@ -260,17 +268,91 @@ export async function getFreshTrayCategories() {
     // TODO check - any integration, any seller brings all the categories?
     const accessToken = await provideTrayAccessToken(integrations[0]);
     const categoriesResponse = await getCategories({ accessToken, storePath: integrations[0].sellerTStorePath || '' });
+    log.info(`Fetched fresh Tray categories: ${JSON.stringify(categoriesResponse)}`);
     return categoriesResponse ? categoriesResponse.Categories.map((categoryWrapper) => categoryWrapper.Category) : [];
   }
   return [];
 }
 
+export async function getAllStoredTrayBrands() {
+  return getTBrandsByActiveState({ active: true });
+}
+
 export async function getActiveStoredTrayBrands() {
-  return getTBrands({ active: true });
+  return getAllTBrands();
+}
+
+export async function getAllStoredTrayCategories() {
+  return getAllTCategories();
 }
 
 export async function getActiveStoredTrayCategories() {
-  return getTCategories({ active: true });
+  return getTCategoriesByActiveState({ active: true });
+}
+
+export async function getTrayBrandSyncDetails() {
+  const [freshTBrands, storedTBrands]
+    = await Promise.all([
+      getFreshTrayBrands(),
+      getAllStoredTrayBrands()
+    ]);
+
+  return {
+    apiTrayBrands: freshTBrands,
+    dbTrayBrands: storedTBrands,
+  };
+}
+
+export async function getTrayCategorySyncDetails() {
+  const [freshTCategories, storedTCategories]
+    = await Promise.all([
+      getFreshTrayCategories(),
+      getAllStoredTrayCategories()
+    ]);
+
+  return {
+    apiTrayCategories: freshTCategories,
+    dbTrayCategories: storedTCategories,
+  };
+}
+
+export async function insertTrayBrand(trayBrand: TBrand) {
+  const newBrandRecordKey = await insertTBrand({ tBrand: trayBrand });
+  return getTrayBrandById(newBrandRecordKey.id);
+}
+
+export async function deleteTrayBrand(id: number) {
+  const result = await deleteTBrand(id);
+  if (result && result.affectedRows === 0) {
+    throw new MiddleError(`No tray brand deleted for internal id ${id}`, ErrorCategory.BUS);
+  }
+  log.info(`Deleted brand with id: ${id} - ${result}`);
+  return result;
+}
+
+export async function getTrayBrandById(id: number) {
+  const brands = await getTBrandById(id);
+  if (brands && Array.isArray(brands) && brands.length === 1) {
+    return brands[0];
+  }
+  return undefined;
+}
+
+export async function getTrayBrandByBrandId(id: number) {
+  const brands = await getTBrandByBrandId(id);
+  if (brands && Array.isArray(brands) && brands.length === 1) {
+    return brands[0];
+  }
+  return undefined;
+}
+
+
+export async function updateTrayBrand(trayBrand: Brand) {
+  const result = await updateTBrand({ tBrand: trayBrand });
+  if (result && result.affectedRows === 0) {
+    throw new MiddleError(`No brand updated for internal id ${trayBrand.id}`, ErrorCategory.BUS);
+  }
+  return getTrayBrandById(trayBrand.id);
 }
 
 // First access
@@ -307,7 +389,7 @@ export async function provideTrayAccessToken(integration: Integration): Promise<
     log.warn('T has expired tokens');
     try {
       const trayToken = await getNewAccessToken(sellerTStoreAccessCode, sellerTStorePath);
-      // log.warn(`Tray Token: ${trayToken}`);
+      log.warn(`New Access Tray Token: ${trayToken}`);
       integrationCopy = copyToken(integration, trayToken);
     } catch (err) {
       throw new MiddleError(
@@ -352,13 +434,13 @@ function hasExpiredTokens(integration: Integration) {
   }
 
   const now = getCurrentUnixTime();
-  // return (
-  //   sellerTAccessExpirationDate &&
-  //   sellerTAccessExpirationDate < now &&
-  //   sellerTRefreshExpirationDate &&
-  //   sellerTRefreshExpirationDate < now
-  // );
-  return true;
+  return (
+    sellerTAccessExpirationDate &&
+    sellerTAccessExpirationDate < now &&
+    sellerTRefreshExpirationDate &&
+    sellerTRefreshExpirationDate < now
+  );
+  // return true;
 }
 
 function hasOnlyAccessTokenExpired(integration: Integration) {
@@ -404,7 +486,15 @@ function copyToken(integration: Integration, trayToken: TrayToken) {
   const integrationCopy = { ...integration };
   integrationCopy.sellerTAccessToken = trayToken.access_token;
   integrationCopy.sellerTRefreshToken = trayToken.refresh_token;
-  integrationCopy.sellerTAccessExpirationDate = convertStringToUnixTime(trayToken.date_expiration_access_token);
-  integrationCopy.sellerTRefreshExpirationDate = convertStringToUnixTime(trayToken.date_expiration_refresh_token);
+  try {
+    integrationCopy.sellerTAccessExpirationDate = convertStringToUnixTime(trayToken.date_expiration_access_token);
+    integrationCopy.sellerTRefreshExpirationDate = convertStringToUnixTime(trayToken.date_expiration_refresh_token);
+  } catch (error) {
+    log.error(`Error parsing token expiration date: ${error}`);
+    // clean existing dates
+    integrationCopy.sellerTAccessExpirationDate = undefined;
+    integrationCopy.sellerTRefreshExpirationDate = undefined;
+  }
+
   return integrationCopy;
 }

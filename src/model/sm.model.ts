@@ -85,16 +85,18 @@ export interface Product {
 
 export interface BrandResponse {
   data: Brand[];
-  meta: Pagination[];
+  meta: Pagination;
 }
 
 interface Pagination {
-  total: number;
-  count: number;
-  per_page: number;
-  current_page: number;
-  total_pages: number;
-  links: Link[];
+  pagination: {
+    total: number;
+    count: number;
+    per_page: number;
+    current_page: number;
+    total_pages: number;
+    links: Link;
+  }
 }
 
 interface Link {
@@ -103,16 +105,20 @@ interface Link {
 
 export interface CategoryResponse {
   data: Category[];
-  meta: Pagination[];
+  meta: Pagination;
 }
 
 export interface Brand {
   id: number;
   name: string;
   slug: string;
-  seo_title: string;
-  seo_description: string;
-  seo_keywords: string;
+  seo_title?: string;
+  seo_description?: string;
+  seo_keywords?: string;
+}
+
+export function isSmBrand(object: any) {
+  return !!(object.id && object.name && object.slug);
 }
 
 export interface Gallery {
@@ -128,6 +134,8 @@ interface Wholesale {
   minimum_quantity: number;
 }
 
+type CategoryWithoutChildren = Omit<Category, 'children'>;
+
 export interface Category {
   id: number;
   parent_id: number;
@@ -141,6 +149,7 @@ export interface Category {
   description: string;
   image_url: string;
   active: boolean;
+  children: CategoryWithoutChildren[];
 }
 
 export enum Condition {

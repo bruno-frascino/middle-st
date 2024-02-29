@@ -86,7 +86,8 @@ export interface Category_Map {
   active: number;
 }
 export interface SBrand {
-  id: number;
+  id: number; // internal brand id
+  brandId: number; // external brand id
   name: string;
   slug: string;
   seoTitle: string;
@@ -98,7 +99,8 @@ export interface SBrand {
 }
 
 export interface SCategory {
-  id: number;
+  id: number; // internal category id
+  categoryId: number; // external category id
   parentId: number;
   referenceCode: string;
   name: string;
@@ -115,7 +117,8 @@ export interface SCategory {
 }
 
 export interface TBrand {
-  id: number;
+  id: number; // internal brand id
+  brandId: number; // external brand id
   slug: string;
   brand: string;
   createDate: string;
@@ -124,7 +127,8 @@ export interface TBrand {
 }
 
 export interface TCategory {
-  id: number;
+  id?: number; // internal category id
+  categoryId: number; // external category id
   parentId: number;
   name: string;
   smallDescription: string;
@@ -132,6 +136,14 @@ export interface TCategory {
   createDate: string;
   updateDate?: string;
   active: number;
+}
+
+export interface RecordKey {
+  id: number;
+}
+
+export interface AffectedRows {
+  affectedRows: number;
 }
 
 export interface IError {
@@ -149,5 +161,27 @@ export function isValidIntegration(object: any) {
     object.sellerTStoreCode &&
     object.sellerTStoreAccessCode &&
     object.sellerTStoreUrl
+  );
+}
+
+export function isValidSmDbBrand(object: any) {
+  return !!(
+    typeof object.id === 'number' &&
+    object.brandId &&
+    object.name &&
+    object.slug &&
+    object.createDate &&
+    typeof object.active === 'number'
+  );
+}
+
+export function isValidTrayDbBrand(object: any) {
+  return !!(
+    typeof object.id === 'number' &&
+    typeof object.brandId === 'number' &&
+    object.brand &&
+    object.slug &&
+    object.createDate &&
+    typeof object.active === 'number'
   );
 }

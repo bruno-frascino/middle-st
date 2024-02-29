@@ -1,8 +1,8 @@
 import log from '../logger';
 import { SBrand as ESBrand, Integration } from '../model/db.model';
 import { Brand, Product, Sku, SmToken } from '../model/sm.model';
-import { addToCurrentTime, convertESBrandToSBrand, getCurrentUnixTime } from '../shared/utils/utils';
-import { getAllActiveIntegrations, getSBrands, getSCategories, updateSConnectionDetails } from '../db/db';
+import { addToCurrentTime, getCurrentUnixTime } from '../shared/utils/utils';
+import { getAllActiveIntegrations, getSBrandsByActiveState, getAllSBrands, getSCategoriesByActiveState, getAllSCategories, insertSBrand, updateSBrand, updateSConnectionDetails, getSBrandById, getSBrandByBrandId, deleteSBrand } from '../db/db';
 import {
   deleteProduct,
   deleteSku,
@@ -187,6 +187,7 @@ export async function getFreshSmBrands() {
   // any integration - Brands are independent of sellers
   const accessToken = await provideSmAccessToken(integrations[0]);
   const brandResponse = await getBrands({ accessToken });
+  log.info(`Fetched fresh SM Brands: ${JSON.stringify(brandResponse)}`);
   return brandResponse ? brandResponse.data : [];
 }
 
@@ -194,15 +195,88 @@ export async function getFreshSmCategories() {
   const integrations = await getAllActiveIntegrations();
   const accessToken = await provideSmAccessToken(integrations[0]);
   const categoryResponse = await getCategories({ accessToken });
+  log.info(`Fetched fresh SM categories: ${JSON.stringify(categoryResponse)}`);
   return categoryResponse ? categoryResponse.data : [];
 }
 
+export async function insertSmBrand(smBrand: Brand) {
+  const newBrandRecordKey = await insertSBrand({ sBrand: smBrand });
+  return getSmBrandById(newBrandRecordKey.id);
+}
+
+export async function updateSmBrand(smBrand: Brand) {
+  const result = await updateSBrand({ sBrand: smBrand });
+  if (result && result.affectedRows === 0) {
+    throw new MiddleError(`No brand updated for internal id ${smBrand.id}`, ErrorCategory.BUS);
+  }
+  return getSmBrandByBrandId(smBrand.id);
+}
+
+export async function getSmBrandSyncDetails() {
+  const [freshSBrands, storedSBrands]
+    = await Promise.all([
+      getFreshSmBrands(),
+      getAllStoredSmBrands(),
+    ]);
+
+  return {
+    apiSmBrands: freshSBrands,
+    dbSmBrands: storedSBrands,
+  };
+}
+
+export async function getSmCategorySyncDetails() {
+  const [freshSCategories, storedSCategories]
+    = await Promise.all([
+      getFreshSmCategories(),
+      getAllStoredSmCategories(),
+    ]);
+
+  return {
+    apiSmCategories: freshSCategories,
+    dbSmCategories: storedSCategories,
+  };
+}
+
+export async function deleteSmBrand(id: number) {
+  const result = await deleteSBrand(id);
+  if (result && result.affectedRows === 0) {
+    throw new MiddleError(`No brand deleted for internal id ${id}`, ErrorCategory.BUS);
+  }
+  log.info(`Deleted SM brand with id: ${id} - ${JSON.stringify(result)}`);
+  return result;
+}
+
+export async function getSmBrandById(id: number) {
+  const brands = await getSBrandById(id);
+  if (brands && Array.isArray(brands) && brands.length === 1) {
+    return brands[0];
+  }
+  return undefined;
+}
+
+export async function getSmBrandByBrandId(id: number) {
+  const brands = await getSBrandByBrandId(id);
+  if (brands && Array.isArray(brands) && brands.length === 1) {
+    return brands[0];
+  }
+  return undefined;
+}
+
 export async function getActiveStoredSmBrands() {
-  return getSBrands({ active: true });
+  return getSBrandsByActiveState({ active: true });
+}
+
+export async function getAllStoredSmBrands() {
+  return getAllSBrands();
 }
 
 export async function getActiveStoredSmCategories() {
-  return getSCategories({ active: true });
+  return getSCategoriesByActiveState({ active: true });
+}
+
+export async function getAllStoredSmCategories() {
+  return getAllSCategories();
 }
 
 /**
@@ -249,10 +323,11 @@ export function getSBrandActionGroups({
       }
     });
 
+    // Commented out for now as this function might not stay
     // delete group
-    if (storedSBrands && storedSBrands.length > 0) {
-      deleteGroup = storedSBrands.map((smBrand) => convertESBrandToSBrand(smBrand));
-    }
+    // if (storedSBrands && storedSBrands.length > 0) {
+    //   deleteGroup = storedSBrands.map((smBrand) => convertESBrandToSBrand(smBrand));
+    // }
 
     actionMap.set(Action.INSERT, insertGroup);
     actionMap.set(Action.UPDATE, updateGroup);

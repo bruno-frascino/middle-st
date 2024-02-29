@@ -1,6 +1,6 @@
 /* eslint-disable no-await-in-loop */
 import config from 'config';
-import { IProduct, Integration } from '../model/db.model';
+import { IProduct, Integration, SBrand as ESBrand, TBrand as ETBrand } from '../model/db.model';
 import { Act, Scope, Product as TProduct, Variant } from '../model/tray.model';
 import { Condition, Product as SProduct, Sku } from '../model/sm.model';
 import { EVarNames, getCurrentUnixTime } from '../shared/utils/utils';
@@ -8,9 +8,11 @@ import {
   getActiveStoredTrayBrands,
   getActiveStoredTrayCategories,
   getAllNotifications,
+  getAllStoredTrayBrands,
   getFreshTrayBrands,
   getFreshTrayCategories,
   getSlimNotifications,
+  getTrayBrandById,
   getTrayProduct,
   getTrayVariant,
   provideTrayAccessToken,
@@ -23,9 +25,11 @@ import {
   deleteSmSku,
   getActiveStoredSmBrands,
   getActiveStoredSmCategories,
+  getAllStoredSmBrands,
   getFreshSmBrands,
   getFreshSmCategories,
   getSBrandActionGroups,
+  getSmBrandById,
   getSmSku,
   provideSmAccessToken,
   removeSmProduct,
@@ -39,6 +43,7 @@ import {
   getBrandMapByTName,
   getCategoryMapByTId,
   getCategoryMapByTName,
+  getIProductById,
   getIProductByT,
   getIProductSkuByT,
   getIProductSkuByVariant,
@@ -53,19 +58,37 @@ import {
   updateIProductSkuByIProduct,
   updateIntegrationByStoreCode,
   updateSBrand,
+  updateSBrandByBrand,
+  updateSBrandStatus,
+  updateTBrandByBrand,
 } from '../db/db';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 
 export async function createIntegration({ storeCode }: { storeCode: string }) {
-  const integration = await insertIntegration({ storeCode: Number.parseInt(storeCode, 10) });
+  const recordKey = await insertIntegration({ storeCode: Number.parseInt(storeCode, 10) });
+  const integration = getActiveIntegrationById(recordKey.id);
+  if (!integration) {
+    throw new MiddleError(`Error creating integration for storeCode: ${storeCode}`, ErrorCategory.BUS);
+  }
   log.info(`Integration record for store code ${storeCode} has been created successfully`);
   return integration;
 }
 
+export async function getActiveIntegrationById(id: number) {
+  const integrations = await getIntegrationById(id);
+  if (integrations && Array.isArray(integrations) && integrations.length === 1) {
+    return integrations[0];
+  }
+  return undefined;
+}
+
 export async function updateIntegrationDetails(integrationParam: Integration) {
-  const integration = await updateIntegrationByStoreCode(integrationParam);
-  log.info(`Integration for store code ${integration.sellerTStoreCode} has been updated with details successfully`);
-  return integration;
+  const result = await updateIntegrationByStoreCode(integrationParam);
+  if (result.affectedRows === 0) {
+    throw new MiddleError(`Integration for store code ${integrationParam.sellerTStoreCode} could not be updated`, ErrorCategory.BUS);
+  }
+  log.info(`Integration for store code ${integrationParam.sellerTStoreCode} has been updated with details successfully`);
+  return getIntegrationByStoreCode(integrationParam.sellerTStoreCode);
 }
 
 export async function getIntegrationDetails(storeCode: number) {
@@ -76,6 +99,22 @@ export async function getIntegrationDetails(storeCode: number) {
   }
 
   return integrations[0];
+}
+
+export async function updateSmDbBrand(smDbBrand: ESBrand) {
+  const result = await updateSBrandByBrand({ dbBrand: smDbBrand });
+  if (result && result.affectedRows === 0) {
+    throw new MiddleError(`No Sm brand updated for internal id ${smDbBrand.id}`, ErrorCategory.BUS);
+  }
+  return getSmBrandById(smDbBrand.id);
+}
+
+export async function updateTrayDbBrand(trayDbBrand: ETBrand) {
+  const result = await updateTBrandByBrand({ dbBrand: trayDbBrand });
+  if (result && result.affectedRows === 0) {
+    throw new MiddleError(`No Tray brand updated for internal id ${trayDbBrand.id}`, ErrorCategory.BUS);
+  }
+  return getTrayBrandById(trayDbBrand.id);
 }
 
 /**
@@ -177,9 +216,8 @@ export async function monitorTrayNotifications() {
             `A new product has been integrated. [Integration:${iProduct.integrationId}, tProduct:${iProduct.tProductId}, sProduct:${iProduct.sProductId}}`,
           );
         } catch (error) {
-          errorMessage = `Failed to integrate a new Product: ${notification.scopeId} for Integration: ${
-            notification.integrationId
-          }. Error: ${JSON.stringify(error)}`;
+          errorMessage = `Failed to integrate a new Product: ${notification.scopeId} for Integration: ${notification.integrationId
+            }. Error: ${JSON.stringify(error)}`;
           log.error(errorMessage);
         }
         break;
@@ -266,7 +304,7 @@ export async function monitorTrayNotifications() {
           // UPDATE IPRODUCT (U state)
           await updateIProduct({ iProductId: iProduct.id, isDeleteState: false });
           // CREATE MAPPING IPRODUCT X SM PRODUCT ID X SKU X VARIANT
-          createIProductSku({
+          await createIProductSku({
             iProductId: iProduct.id,
             sSkuId: sSku.id ?? 0,
             tVariantId: variant.Variant.id,
@@ -688,56 +726,62 @@ export async function registerIntegratedProduct(integrationId: number, tProductI
     sProductId,
   };
 
-  return createIProduct(iProductDetails);
+  const recordKey = await createIProduct(iProductDetails);
+  return getActiveIProductById(recordKey.id);
+
   // TODO - check Unhappy or what to do with the returned value
   // we need to log it
 }
 
-export async function getBrandSyncDetails() {
-  // const promises = [getFreshSmBrands(), getActiveStoredSmBrands(), getFreshTrayBrands(), getActiveStoredTrayBrands()];
-  // const promiseResult = await Promise.all(promises);
-
-  // get SM Brands
-  const freshSBrands = await getFreshSmBrands();
-  // get DB SM Brands
-  const storedSBrands = await getActiveStoredSmBrands();
-
-  // get T Brands
-  const freshTBrands = await getFreshTrayBrands();
-
-  // get DB T Brands
-  const storedTBrands = await getActiveStoredTrayBrands();
-
-  return {
-    apiSmBrands: freshSBrands,
-    dbSmBrands: storedSBrands,
-    apiTrayBrands: freshTBrands,
-    dbTrayBrands: storedTBrands,
-  };
+export async function getActiveIProductById(id: number) {
+  const iProducts = await getIProductById(id);
+  if (iProducts && Array.isArray(iProducts) && iProducts.length === 1) {
+    return iProducts[0];
+  }
+  return undefined;
 }
 
-export async function getCategorySyncDetails() {
-  // const promises = [getFreshSmBrands(), getActiveStoredSmBrands(), getFreshTrayBrands(), getActiveStoredTrayBrands()];
-  // const promiseResult = await Promise.all(promises);
+// TODO- remove
+// export async function getBrandSyncDetails() {
+//   const [freshSBrands, storedSBrands, freshTBrands, storedTBrands]
+//     = await Promise.all([
+//       getFreshSmBrands(),
+//       getAllStoredSmBrands(),
+//       getFreshTrayBrands(),
+//       getAllStoredTrayBrands()
+//     ]);
 
-  // get SM Categories
-  const freshSCategories = await getFreshSmCategories();
-  // get DB SM Categories
-  const storedSCategories = await getActiveStoredSmCategories();
+//   return {
+//     apiSmBrands: freshSBrands,
+//     dbSmBrands: storedSBrands,
+//     apiTrayBrands: freshTBrands,
+//     dbTrayBrands: storedTBrands,
+//   };
+// }
 
-  // get T Categories
-  const freshTCategories = await getFreshTrayCategories();
+// TODO remove
+// export async function getCategorySyncDetails() {
+//   // const promises = [getFreshSmBrands(), getActiveStoredSmBrands(), getFreshTrayBrands(), getActiveStoredTrayBrands()];
+//   // const promiseResult = await Promise.all(promises);
 
-  // get DB T Categories
-  const storedTCategories = await getActiveStoredTrayCategories();
+//   // get SM Categories
+//   const freshSCategories = await getFreshSmCategories();
+//   // get DB SM Categories
+//   const storedSCategories = await getActiveStoredSmCategories();
 
-  return {
-    apiSmCategories: freshSCategories,
-    dbSmCategories: storedSCategories,
-    apiTrayCategories: freshTCategories,
-    dbTrayCategories: storedTCategories,
-  };
-}
+//   // get T Categories
+//   const freshTCategories = await getFreshTrayCategories();
+
+//   // get DB T Categories
+//   const storedTCategories = await getActiveStoredTrayCategories();
+
+//   return {
+//     apiSmCategories: freshSCategories,
+//     dbSmCategories: storedSCategories,
+//     apiTrayCategories: freshTCategories,
+//     dbTrayCategories: storedTCategories,
+//   };
+// }
 
 export async function manageBrandSynchronization() {
   // UPDATE SM Brand Table
@@ -752,6 +796,7 @@ export async function manageBrandSynchronization() {
   // records matched
 }
 
+// TODO - consider removing this
 export async function updateSBrandReference() {
   // get SM Brands
   const freshSBrands = await getFreshSmBrands();

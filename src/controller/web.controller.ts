@@ -1,15 +1,61 @@
 import { NextFunction, Request, Response } from 'express';
 import log from '../logger';
-import { Notification, isNotification } from '../model/tray.model';
-import { getConsumerKey, handleNotification } from '../services/tray.service';
+import { Notification, isNotification, isTrayBrand, Brand as TBrand } from '../model/tray.model';
+import { deleteTrayBrand, getConsumerKey, getTrayBrandSyncDetails, getTrayCategorySyncDetails, handleNotification, insertTrayBrand, updateTrayBrand } from '../services/tray.service';
 import {
   createIntegration,
-  getBrandSyncDetails,
-  getCategorySyncDetails,
   getIntegrationDetails,
   updateIntegrationDetails,
+  updateSmDbBrand,
+  updateTrayDbBrand,
 } from '../services/middle.service';
-import { isValidIntegration } from '../model/db.model';
+import { isValidIntegration, isValidSmDbBrand, isValidTrayDbBrand } from '../model/db.model';
+import { deleteSmBrand, getSmBrandSyncDetails, getSmCategorySyncDetails, insertSmBrand, updateSmBrand } from '../services/sm.service';
+import { isSmBrand, Brand as SBrand } from '../model/sm.model';
+
+// export interface CrudMap {
+//   function: Function;
+//   // validateInput: (object: any) => boolean;
+//   // insertFn?: (object: any) => Promise<TBrand | SBrand>;
+//   // updateFn?: (object: any) => Promise<TBrand | SBrand>;
+//   // deleteFn?: (id: number) => Promise<{ affectedRows: number }>;
+// }
+
+const brandHandlerMap = {
+  'sm': {
+    validateInput: isSmBrand,
+    insertFn: insertSmBrand,
+    updateFn: updateSmBrand,
+    deleteFn: deleteSmBrand,
+  },
+  'tray': {
+    validateInput: isTrayBrand,
+    insertFn: insertTrayBrand,
+    updateFn: updateTrayBrand,
+    deleteFn: deleteTrayBrand,
+  },
+  'fsi-sm': {
+    validateInput: isValidSmDbBrand,
+    updateFn: updateSmDbBrand,
+    insertFn: () => { },
+    deleteFn: () => { },
+  },
+  'fsi-tray': {
+    validateInput: isValidTrayDbBrand,
+    updateFn: updateTrayDbBrand,
+    insertFn: () => { },
+    deleteFn: () => { },
+  },
+};
+type SystemId = 'sm' | 'tray' | 'fsi-sm' | 'fsi-tray';
+enum SystemIdEnum {
+  sm = 'sm',
+  tray = 'tray',
+  fsiSm = 'fsi-sm',
+  fsiTray = 'fsi-tray',
+
+}
+const validSystemIds = Object.keys(brandHandlerMap);
 
 export async function notificationHandler(req: Request, res: Response, next: NextFunction) {
   try {
@@ -65,12 +111,12 @@ export async function updateIntegrationHandler(req: Request, res: Response, next
     }
 
     const integration = await updateIntegrationDetails(requestData);
-    const responseData = {
-      integration,
-    };
+    // const responseData = {
+    //   integration,
+    // };
 
     res.status(200).json({
-      responseData,
+      integration,
     });
   } catch (err) {
     log.error(`Unable to update Integration with data ${JSON.stringify(requestData)} with error: ${err}`);
@@ -107,28 +153,236 @@ export async function getIntegrationByStoreCodeHandler(req: Request, res: Respon
   }
 }
 
-export async function syncBrandsHandler(req: Request, res: Response, next: NextFunction) {
+// TODO remove
+// export async function syncBrandsHandler(req: Request, res: Response, next: NextFunction) {
+//   try {
+//     const brandInformation = await getBrandSyncDetails();
+
+//     res.status(200).json({
+//       ...brandInformation,
+//     });
+//   } catch (err) {
+//     log.error(`Unable to fetch Brand sync details with error: ${err}`);
+//     next(err);
+//   }
+// }
+
+export async function syncSmBrandsHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    const brandInformation = await getBrandSyncDetails();
+    const smBrandInformation = await getSmBrandSyncDetails();
 
     res.status(200).json({
-      brandInformation,
+      ...smBrandInformation,
     });
   } catch (err) {
-    log.error(`Unable to fetch Brand sync details with error: ${err}`);
+    log.error(`Unable to fetch Sm Brand sync details with error: ${err}`);
     next(err);
   }
 }
 
-export async function syncCategoriesHandler(req: Request, res: Response, next: NextFunction) {
+export async function syncTrayBrandsHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    const categoriesInformation = await getCategorySyncDetails();
+    const trayBrandInformation = await getTrayBrandSyncDetails();
 
     res.status(200).json({
-      categoriesInformation,
+      ...trayBrandInformation,
     });
   } catch (err) {
-    log.error(`Unable to fetch Categories sync details with error: ${err}`);
+    log.error(`Unable to fetch Tray Brand sync details with error: ${err}`);
+    next(err);
+  }
+}
+
+// export async function syncCategoriesHandler(req: Request, res: Response, next: NextFunction) {
+//   try {
+//     const categoriesInformation = await getCategorySyncDetails();
+
+//     res.status(200).json({
+//       ...categoriesInformation,
+//     });
+//   } catch (err) {
+//     log.error(`Unable to fetch Categories sync details with error: ${err}`);
+//     next(err);
+//   }
+// }
+
+export async function syncSmCategoriesHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const smCategoriesInformation = await getSmCategorySyncDetails();
+
+    res.status(200).json({
+      ...smCategoriesInformation,
+    });
+  } catch (err) {
+    log.error(`Unable to fetch Sm Categories sync details with error: ${err}`);
+    next(err);
+  }
+}
+
+export async function syncTrayCategoriesHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const trayCategoriesInformation = await getTrayCategorySyncDetails();
+
+    res.status(200).json({
+      ...trayCategoriesInformation,
+    });
+  } catch (err) {
+    log.error(`Unable to fetch Tray Categories sync details with error: ${err}`);
+    next(err);
+  }
+}
+
+// Handles SM Brand Insertion and Tray Brand Insertion
+export async function insertBrandHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    // Validate Input
+    const systemId = req.params.systemId as string
+    const payload = req.body;
+    const handler = getBrandCrudHandler(systemId);
+    if (!handler || (handler && !handler.validateInput(payload))) {
+      const errorMsg = `Invalid request. Payload: ${JSON.stringify(req.body)} SystemId: ${systemId}`;
+      log.error(errorMsg);
+      res.status(400).json({ message: errorMsg });
+      return;
+    }
+
+    const brand = await handler.insertFn(payload);
+
+    res.status(200).json({
+      ...brand
+    });
+  } catch (err) {
+    log.error(`Unable to insert brand: ${err}`);
+    next(err);
+  }
+}
+
+export function getBrandCrudHandler(systemId: string | undefined) {
+  if (systemId && validSystemIds.includes(systemId)) {
+    const handler = brandHandlerMap[systemId as SystemId];
+    return handler;
+  }
+  return undefined;
+}
+
+// Handles SM Brand Update and Tray Brand Update
+export async function updateBrandHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    // Validate Input
+    const systemId = req.params.systemId as string
+    const payload = req.body;
+    const handler = getBrandCrudHandler(systemId);
+    if (!handler || (handler && !handler.validateInput(payload))) {
+      const errorMsg = `Invalid request. Payload: ${JSON.stringify(req.body)} SystemId: ${systemId}`;
+      log.error(errorMsg);
+      res.status(400).json({ message: errorMsg });
+      return;
+    }
+
+    const brand = await handler.updateFn(payload);
+
+    res.status(200).json({
+      ...brand
+    });
+  } catch (err) {
+    log.error(`Unable to update brand: ${err}`);
+    next(err);
+  }
+}
+
+// Handles SM and Tray Brand Delete
+export async function deleteBrandHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    // Validate Input
+    const systemId = req.params.systemId as string;
+    const id = req.params.id as string;
+    const handler = getBrandCrudHandler(systemId);
+    if (!handler || !id) {
+      const errorMsg = `Invalid request with systemId: ${systemId} and brand id: ${id}`;
+      log.error(errorMsg);
+      res.status(400).json({ message: errorMsg });
+      return;
+    }
+
+    const result = await handler.deleteFn(Number(id));
+
+    res.status(200).json(
+      result?.affectedRows
+    );
+  } catch (err) {
+    log.error(`Unable to delete brand: ${err}`);
+    next(err);
+  }
+}
+
+// TODO Handles SM and Tray Cateogry Insertion
+export async function insertCategoryHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    // Validate Input
+    const systemId = req.params.systemId as string;
+    const validSystemIds = ['sm', 'tray'];
+    if (!systemId || !validSystemIds.includes(systemId) || !brandHandlerMap[systemId as 'sm' | 'tray'].validateInput(req.body)) {
+      const errorMsg = `Invalid request. Payload: ${JSON.stringify(req.body)} SystemId: ${systemId}`;
+      log.error(errorMsg);
+      res.status(400).json({ message: errorMsg });
+      return;
+    }
+
+    const brand = await brandHandlerMap[systemId as 'sm' | 'tray'].insertFn(req.body);
+
+    res.status(200).json({
+      ...brand
+    });
+  } catch (err) {
+    log.error(`Unable to insert brand: ${err}`);
+    next(err);
+  }
+}
+
+// TODO Handles SM and Tray Category Update
+export async function updateCategoryHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    // Validate Input
+    const systemId = req.params.systemId as string;
+    const validSystemIds = ['sm', 'tray'];
+    if (!systemId || !validSystemIds.includes(systemId) || !brandHandlerMap[systemId as 'sm' | 'tray'].validateInput(req.body)) {
+      const errorMsg = `Invalid request. Payload: ${JSON.stringify(req.body)} SystemId: ${systemId}`;
+      log.error(errorMsg);
+      res.status(400).json({ message: errorMsg });
+      return;
+    }
+
+    const brand = await brandHandlerMap[systemId as 'sm' | 'tray'].updateFn(req.body);
+    log.warn(`Updated SM Brand Brand: ${JSON.stringify(brand)}`);
+
+    res.status(200).json({
+      ...brand
+    });
+  } catch (err) {
+    log.error(`Unable to update brand: ${err}`);
+    next(err);
+  }
+}
+
+// TODO Handles SM and Tray Category Delete
+export async function deleteCateogryHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    // Validate Input
+    const systemId = req.params.systemId as string;
+    const brandId = req.params.brandId as string;
+    const validSystemIds = ['sm', 'tray'];
+    if (!systemId || !brandId || !validSystemIds.includes(systemId)) {
+      const errorMsg = `Invalid request with systemId: ${systemId} and brandId: ${brandId}`;
+      log.error(errorMsg);
+      res.status(400).json({ message: errorMsg });
+      return;
+    }
+
+    await brandHandlerMap[systemId as 'sm' | 'tray'].deleteFn(Number(brandId));
+
+    res.sendStatus(200);
+  } catch (err) {
+    log.error(`Unable to delete brand: ${err}`);
     next(err);
   }
 }

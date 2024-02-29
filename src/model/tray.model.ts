@@ -235,7 +235,7 @@ export interface BrandResponse {
   paging: Paging;
   sort: any[];
   availableFilters: string[];
-  appliedFilters: [];
+  appliedFilters: string[];
   Brands: BrandWrapper[];
 }
 
@@ -246,6 +246,10 @@ export interface Brand {
   id: number;
   slug: string;
   brand: string;
+}
+
+export function isTrayBrand(object: any) {
+  return !!(object.id && object.slug && object.brand);
 }
 
 interface Paging {
@@ -260,7 +264,7 @@ export interface CategoriesResponse {
   paging: Paging;
   sort: any[];
   availableFilters: string[];
-  appliedFilters: [];
+  appliedFilters: string[];
   Categories: CategoriesWrapper[];
 }
 
@@ -272,7 +276,11 @@ interface Category {
   id: number;
   parent_id: number;
   name: string;
+  description: string;
   small_description: string;
+  title: string;
   Images?: Image[];
   slug: string;
+  has_product: number;
+  children: Category[];
 }

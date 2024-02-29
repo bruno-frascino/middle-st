@@ -3,6 +3,7 @@ import config from 'config';
 import log from '../logger';
 import { EVarNames } from '../shared/utils/utils';
 import {
+  AffectedRows,
   Brand_Map,
   Category_Map,
   Notification as ENotification,
@@ -14,8 +15,10 @@ import {
   IProduct,
   IProductSku,
   Integration,
+  RecordKey,
+  TBrand,
 } from '../model/db.model';
-import { Notification } from '../model/tray.model';
+import { Notification, Brand as TrayBrand } from '../model/tray.model';
 import { Brand as SBrand } from '../model/sm.model';
 
 let connectionPool: mysql.Pool;
@@ -80,7 +83,7 @@ export function query(sql: string, params: any[] = []) {
 //   });
 // }
 
-export function run(sql: string, values: any[] = []) {
+export function insert(sql: string, values: any[] = []) {
   log.debug(`Running: ${sql} with values: ${JSON.stringify(values)}`);
   return new Promise((resolve, reject) => {
     getConnectionFromPool().query<ResultSetHeader>(sql, values, (err, res) => {
@@ -89,6 +92,20 @@ export function run(sql: string, values: any[] = []) {
         reject(err);
       } else {
         resolve({ id: res.insertId });
+      }
+    });
+  });
+}
+
+export function upLete(sql: string, values: any[] = []) {
+  log.debug(`Running: ${sql} with values: ${JSON.stringify(values)}`);
+  return new Promise((resolve, reject) => {
+    getConnectionFromPool().query<ResultSetHeader>(sql, values, (err, res) => {
+      if (err) {
+        log.error(`Error running: ${sql} with error ${err}`);
+        reject(err);
+      } else {
+        resolve({ affectedRows: res.affectedRows });
       }
     });
   });
@@ -137,9 +154,10 @@ export async function insertIntegration({ storeCode }: { storeCode: number }) {
               ?, now(), 0
             );`;
 
-  return (await run(sql, [storeCode])) as Integration;
+  return (await insert(sql, [storeCode])) as RecordKey;
 }
 
+// TODO think of the lifecycle of this
 export async function insertIError({ errorMessage }: { errorMessage: string }) {
   const sql = `INSERT INTO IError(
               message, createDate) 
@@ -147,7 +165,7 @@ export async function insertIError({ errorMessage }: { errorMessage: string }) {
               ?, now()
             );`;
 
-  return (await run(sql, [errorMessage])) as IError;
+  return (await insert(sql, [errorMessage])) as RecordKey;
 }
 
 export async function updateIntegrationByStoreCode(integration: Integration) {
@@ -163,14 +181,14 @@ export async function updateIntegrationByStoreCode(integration: Integration) {
     active = 1
   WHERE sellerTStoreCode = ?`;
 
-  return (await run(sql, [
+  return (await upLete(sql, [
     sellerName,
     sellerSKey,
     sellerSSecret,
     sellerTStoreAccessCode,
     sellerTStorePath,
     sellerTStoreCode,
-  ])) as Integration;
+  ])) as AffectedRows;
 }
 
 export async function insertNotification(notification: Notification, integrationId: number) {
@@ -181,13 +199,13 @@ export async function insertNotification(notification: Notification, integration
                 ?, ?, ?, ?, ?, now(), 0
             );`;
 
-  return (await run(sql, [
+  return (await insert(sql, [
     notification.scope_name,
     notification.act,
     notification.scope_id,
     notification.seller_id,
     integrationId,
-  ])) as Object;
+  ])) as RecordKey;
 }
 
 export async function getOrderedNotifications() {
@@ -200,7 +218,7 @@ export async function deleteNotifications(ids: number[]) {
   const params = ids.join(',');
   const sql = `DELETE FROM Notification WHERE id IN(${params})`;
 
-  return (await run(sql)) as Object;
+  return (await upLete(sql)) as AffectedRows;
 }
 
 export async function updateTConnectionDetails(integration: Integration) {
@@ -214,13 +232,13 @@ export async function updateTConnectionDetails(integration: Integration) {
 
   const { sellerTAccessToken, sellerTRefreshToken, sellerTAccessExpirationDate, sellerTRefreshExpirationDate, id } =
     integration;
-  return (await run(sql, [
+  return (await upLete(sql, [
     sellerTAccessToken,
     sellerTRefreshToken,
     sellerTAccessExpirationDate,
     sellerTRefreshExpirationDate,
     id,
-  ])) as Object;
+  ])) as AffectedRows;
 }
 
 export async function updateSConnectionDetails(integration: Integration) {
@@ -230,11 +248,11 @@ export async function updateSConnectionDetails(integration: Integration) {
     sellerSAccessExpirationDate = ?
   WHERE ID = ?`;
 
-  return (await run(sql, [
+  return (await upLete(sql, [
     integration.sellerSAccessToken,
     integration.sellerSAccessExpirationDate,
     integration.id,
-  ])) as Object;
+  ])) as AffectedRows;
 }
 
 export async function createIProduct({
@@ -251,7 +269,7 @@ export async function createIProduct({
     VALUES(
     ?, ?, ?, now(), 'C'
   );`;
-  return (await run(sql, [integrationId, tProductId, sProductId])) as IProduct;
+  return (await insert(sql, [integrationId, tProductId, sProductId])) as RecordKey;
 }
 
 export async function getIProductByT({ integrationId, tProductId }: { integrationId: number; tProductId: number }) {
@@ -259,6 +277,15 @@ export async function getIProductByT({ integrationId, tProductId }: { integratio
   FROM IProduct 
   WHERE integrationId = ${integrationId}
   AND tProductId = ${tProductId}
+  AND state <> 'D';`;
+
+  return (await query(sql)) as IProduct;
+}
+
+export async function getIProductById(id: number) {
+  const sql = `SELECT * 
+  FROM IProduct 
+  WHERE id = ${id}
   AND state <> 'D';`;
 
   return (await query(sql)) as IProduct;
@@ -280,7 +307,7 @@ export async function updateIProduct({ iProductId, isDeleteState }: { iProductId
     updateDate = now(),
     state = ${isDeleteState ? 'D' : 'U'}
   WHERE ID = ${iProductId}`;
-  return (await run(sql)) as Object;
+  return (await upLete(sql)) as AffectedRows;
 }
 
 export async function createIProductSku({
@@ -299,7 +326,7 @@ export async function createIProductSku({
     VALUES(
     ?, ?, ?, ?, now(), 'C'
   );`;
-  return (await run(sql, [iProductId, sSkuId, tVariantId, tStock])) as IProductSku;
+  return (await insert(sql, [iProductId, sSkuId, tVariantId, tStock])) as RecordKey;
 }
 
 export async function getIProductSkuByT({
@@ -346,7 +373,7 @@ export async function updateIProductSku({
     state = ${isDeleteState ? 'D' : 'U'},
     tStock: ${tStock}
   WHERE ID = ${iProductSkuId}`;
-  return (await run(sql)) as Object;
+  return (await upLete(sql)) as AffectedRows;
 }
 
 // states: [C, U, D]
@@ -371,7 +398,7 @@ export async function updateIProductSkuByIProduct({
     updateDate = now(),
     state = ${isDeleteState ? 'D' : 'U'},
   WHERE ID = ${iProductId}`;
-  return (await run(sql)) as Object;
+  return (await upLete(sql)) as AffectedRows;
 }
 
 export async function getIProductSkuByVariant({ tVariantId }: { tVariantId: number }) {
@@ -419,41 +446,70 @@ export async function getIProductSkusByIProduct(iProductId: number) {
   return (await query(sql)) as IProductSku;
 }
 
-export async function getSBrands({ active }: { active: boolean }) {
+export async function getSBrandsByActiveState({ active }: { active: boolean }) {
   const sql = `SELECT * FROM SBrand 
     WHERE active = ${active ? 1 : 0} 
-    ORDER BY id;`;
+    ORDER BY brandId;`;
 
   return (await query(sql)) as ESBrand[];
 }
 
-export async function getSCategories({ active }: { active: boolean }) {
+export async function getAllSBrands() {
+  const sql = `SELECT * FROM SBrand 
+    ORDER BY brandId;`;
+
+  return (await query(sql)) as ESBrand[];
+}
+
+export async function getSCategoriesByActiveState({ active }: { active: boolean }) {
   const sql = `SELECT * FROM SCategory 
     WHERE active = ${active ? 1 : 0} 
-    ORDER BY id;`;
+    ORDER BY categoryId;`;
 
   return (await query(sql)) as ESCategory[];
 }
 
-export async function getTBrands({ active }: { active: boolean }) {
+export async function getAllSCategories() {
+  const sql = `SELECT * FROM SCategory 
+    ORDER BY categoryId;`;
+
+  return (await query(sql)) as ESCategory[];
+}
+
+export async function getTBrandsByActiveState({ active }: { active: boolean }) {
   const sql = `SELECT * FROM TBrand 
     WHERE active = ${active ? 1 : 0} 
-    ORDER BY id;`;
+    ORDER BY brandId;`;
 
   return (await query(sql)) as ETBrand[];
 }
 
-export async function getTCategories({ active }: { active: boolean }) {
+export async function getAllTBrands() {
+  const sql = `SELECT * FROM TBrand 
+    ORDER BY brandId;`;
+
+  return (await query(sql)) as ETBrand[];
+}
+
+export async function getTCategoriesByActiveState({ active }: { active: boolean }) {
   const sql = `SELECT * FROM TCategory 
     WHERE active = ${active ? 1 : 0} 
-    ORDER BY id;`;
+    ORDER BY categoryId;`;
+
+  return (await query(sql)) as ETCategory[];
+}
+
+export async function getAllTCategories() {
+  const sql = `SELECT * FROM TCategory 
+    ORDER BY categoryId;`;
 
   return (await query(sql)) as ETCategory[];
 }
 
 export async function insertSBrand({ sBrand }: { sBrand: SBrand }) {
-  const { name, slug, seo_title, seo_description, seo_keywords } = sBrand;
+  const { id, name, slug, seo_title, seo_description, seo_keywords } = sBrand;
   const sql = `INSERT INTO SBrand(
+    brandId,
     name, 
     slug, 
     seoTitle, 
@@ -462,10 +518,57 @@ export async function insertSBrand({ sBrand }: { sBrand: SBrand }) {
     createDate, 
     active) 
     VALUES(
-    ?, ?, ?, ?, ?, now(), 1
+    ?, ?, ?, ?, ?, ?, now(), 1
   );`;
 
-  return (await run(sql, [name, slug, seo_title, seo_description, seo_keywords])) as ESBrand;
+  return (await insert(sql, [id, name, slug, seo_title, seo_description, seo_keywords])) as RecordKey;
+}
+
+export async function getSBrandById(id: number) {
+  const sql = `SELECT * 
+              FROM SBrand 
+              WHERE id = ${id}`;
+
+  return (await query(sql)) as ESBrand[];
+}
+
+export async function getSBrandByBrandId(brandId: number) {
+  const sql = `SELECT * 
+              FROM SBrand 
+              WHERE brandId = ${brandId}`;
+
+  return (await query(sql)) as ESBrand[];
+}
+
+export async function insertTBrand({ tBrand }: { tBrand: TBrand }) {
+  const { id, brand, slug } = tBrand;
+  const sql = `INSERT INTO TBrand(
+    brandId,
+    brand, 
+    slug, 
+    createDate, 
+    active) 
+    VALUES(
+    ?, ?, ?, now(), 1
+  );`;
+
+  return (await insert(sql, [id, brand, slug])) as RecordKey;
+}
+
+export async function getTBrandById(id: number) {
+  const sql = `SELECT * 
+              FROM TBrand 
+              WHERE id = ${id}`;
+
+  return (await query(sql)) as ETBrand[];
+}
+
+export async function getTBrandByBrandId(brandId: number) {
+  const sql = `SELECT * 
+              FROM TBrand 
+              WHERE brandId = ${brandId}`;
+
+  return (await query(sql)) as ETBrand[];
 }
 
 export async function updateSBrand({ sBrand }: { sBrand: SBrand }) {
@@ -479,9 +582,76 @@ export async function updateSBrand({ sBrand }: { sBrand: SBrand }) {
     seoKeywords = ?,
     updateDate = now(),
     active = 1
+  WHERE brandId = ?`;
+
+  return (await upLete(sql, [name, slug, seo_title, seo_description, seo_keywords, id])) as AffectedRows;
+}
+
+export async function updateSBrandByBrand({ dbBrand }: { dbBrand: ESBrand }) {
+  const { id, name, slug, seoTitle, seoDescription, seoKeywords, active } = dbBrand;
+  const sql = `UPDATE SBrand 
+  SET 
+    name = ?,
+    slug = ?,
+    seoTitle = ?,
+    seoDescription = ?,
+    seoKeywords = ?,
+    updateDate = now(),
+    active = ?
   WHERE id = ?`;
 
-  return (await run(sql, [name, slug, seo_title, seo_description, seo_keywords, id])) as ESBrand;
+  return (await upLete(sql, [name, slug, seoTitle, seoDescription, seoKeywords, active, id])) as AffectedRows;
+}
+
+
+
+export async function updateSBrandStatus({ id, active }: { id: number, active: number }) {
+
+  const sql = `UPDATE SBrand 
+  SET 
+    updateDate = now(),
+    active = ?
+  WHERE id = ?`;
+
+  return (await upLete(sql, [active, id])) as AffectedRows;
+}
+
+export async function updateTBrand({ tBrand }: { tBrand: TrayBrand }) {
+  const { id, brand, slug } = tBrand;
+  const sql = `UPDATE TBrand 
+  SET 
+    brand = ?,
+    slug = ?,
+    updateDate = now(),
+    active = 1
+  WHERE brandId = ?`;
+
+  return (await upLete(sql, [brand, slug, id])) as AffectedRows;
+}
+
+export async function updateTBrandByBrand({ dbBrand }: { dbBrand: ETBrand }) {
+  const { id, brand, slug, active } = dbBrand;
+  const sql = `UPDATE TBrand 
+  SET 
+    brand = ?,
+    slug = ?,
+    updateDate = now(),
+    active = ?
+  WHERE id = ?`;
+
+  return (await upLete(sql, [brand, slug, active, id])) as AffectedRows;
+}
+
+export async function deleteSBrand(id: number) {
+  const sql = `DELETE FROM SBrand WHERE id = ${id}`;
+
+  return (await upLete(sql)) as AffectedRows;
+}
+
+export async function deleteTBrand(id: number) {
+  const sql = `DELETE FROM TBrand WHERE id = ${id}`;
+
+  return (await upLete(sql)) as AffectedRows;
 }
 
 export async function getIProductSkusByIntegration(integrationId: number) {
