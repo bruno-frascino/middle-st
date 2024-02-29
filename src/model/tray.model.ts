@@ -282,5 +282,4 @@ interface Category {
   Images?: Image[];
   slug: string;
   has_product: number;
-  children: Category[];
 }

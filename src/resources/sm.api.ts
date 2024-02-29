@@ -129,7 +129,7 @@ export async function getCategories({
   accessToken: string;
   fetchFn?: Function;
 }): Promise<CategoryResponse> {
-  const url = `${baseUrl}/api/v1/categories/tree`;
+  const url = `${baseUrl}/api/v1/categories`;
   return smFetch({ url, method: 'GET', fetchFn, accessToken });
 }
 

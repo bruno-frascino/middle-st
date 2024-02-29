@@ -134,8 +134,6 @@ interface Wholesale {
   minimum_quantity: number;
 }
 
-type CategoryWithoutChildren = Omit<Category, 'children'>;
-
 export interface Category {
   id: number;
   parent_id: number;
@@ -149,7 +147,6 @@ export interface Category {
   description: string;
   image_url: string;
   active: boolean;
-  children: CategoryWithoutChildren[];
 }
 
 export enum Condition {
