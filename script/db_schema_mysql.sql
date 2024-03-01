@@ -113,7 +113,8 @@ CREATE TABLE SCategory(
   imageUrl VARCHAR(100),
   createDate DATETIME NOT NULL,
   updateDate DATETIME, 
-  active BOOLEAN NOT NULL
+  active BOOLEAN NOT NULL,
+  fsActive BOOLEAN NOT NULL
 );
 
 CREATE TABLE TCategory(
