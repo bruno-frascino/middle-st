@@ -1,8 +1,8 @@
 import log from '../logger';
 import { SBrand as ESBrand, Integration } from '../model/db.model';
-import { Brand, Product, Sku, SmToken } from '../model/sm.model';
+import { Brand, Category, Product, Sku, SmToken } from '../model/sm.model';
 import { addToCurrentTime, getCurrentUnixTime } from '../shared/utils/utils';
-import { getAllActiveIntegrations, getSBrandsByActiveState, getAllSBrands, getSCategoriesByActiveState, getAllSCategories, insertSBrand, updateSBrand, updateSConnectionDetails, getSBrandById, getSBrandByBrandId, deleteSBrand } from '../db/db';
+import { getAllActiveIntegrations, getSBrandsByActiveState, getAllSBrands, getSCategoriesByActiveState, getAllSCategories, insertSBrand, updateSBrand, updateSConnectionDetails, getSBrandById, getSBrandByBrandId, deleteSBrand, insertSCategory, getSCategoryById, updateSCategory, getSCategoryByCategoryId } from '../db/db';
 import {
   deleteProduct,
   deleteSku,
@@ -204,6 +204,19 @@ export async function insertSmBrand(smBrand: Brand) {
   return getSmBrandById(newBrandRecordKey.id);
 }
 
+export async function insertSmCategory(smCategory: Category) {
+  const newRecordKey = await insertSCategory({ sCategory: smCategory });
+  return getSmCategoryById(newRecordKey.id);
+}
+
+export async function updateSmCategory(smCategory: Category) {
+  const result = await updateSCategory({ sCategory: smCategory });
+  if (result && result.affectedRows === 0) {
+    throw new MiddleError(`No Sm category updated for internal id ${smCategory.id}`, ErrorCategory.BUS);
+  }
+  return getSmCategoryByCategoryId(smCategory.id);
+}
+
 export async function updateSmBrand(smBrand: Brand) {
   const result = await updateSBrand({ sBrand: smBrand });
   if (result && result.affectedRows === 0) {
@@ -251,6 +264,22 @@ export async function getSmBrandById(id: number) {
   const brands = await getSBrandById(id);
   if (brands && Array.isArray(brands) && brands.length === 1) {
     return brands[0];
+  }
+  return undefined;
+}
+
+export async function getSmCategoryById(id: number) {
+  const categories = await getSCategoryById(id);
+  if (categories && Array.isArray(categories) && categories.length === 1) {
+    return categories[0];
+  }
+  return undefined;
+}
+
+export async function getSmCategoryByCategoryId(id: number) {
+  const categories = await getSCategoryByCategoryId(id);
+  if (categories && Array.isArray(categories) && categories.length === 1) {
+    return categories[0];
   }
   return undefined;
 }

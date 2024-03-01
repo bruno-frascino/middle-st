@@ -19,7 +19,7 @@ import {
   TBrand,
 } from '../model/db.model';
 import { Notification, Brand as TrayBrand } from '../model/tray.model';
-import { Brand as SBrand } from '../model/sm.model';
+import { Brand as SBrand, Category as SCategory } from '../model/sm.model';
 
 let connectionPool: mysql.Pool;
 
@@ -524,12 +524,53 @@ export async function insertSBrand({ sBrand }: { sBrand: SBrand }) {
   return (await insert(sql, [id, name, slug, seo_title, seo_description, seo_keywords])) as RecordKey;
 }
 
+export async function insertSCategory({ sCategory }: { sCategory: SCategory }) {
+  const { id, parent_id, referenceCode, name, slug, seo_title, seo_description, seo_keywords, seo_h1, description, image_url, active } = sCategory;
+  const sql = `INSERT INTO SCategory(
+    categoryId,
+    parentId,
+    referenceCode,
+    name, 
+    slug, 
+    seoTitle, 
+    seoDescription, 
+    seoKeywords, 
+    seoH1,
+    description,
+    imageUrl,
+    active,
+    createDate, 
+    fsActive) 
+    VALUES(
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), 1
+  );`;
+
+  return (await insert(sql, [id, parent_id, referenceCode, name, slug, seo_title,
+    seo_description, seo_keywords, seo_h1, description, image_url, active])) as RecordKey;
+}
+
 export async function getSBrandById(id: number) {
   const sql = `SELECT * 
               FROM SBrand 
               WHERE id = ${id}`;
 
   return (await query(sql)) as ESBrand[];
+}
+
+export async function getSCategoryById(id: number) {
+  const sql = `SELECT * 
+              FROM SCategory 
+              WHERE id = ${id}`;
+
+  return (await query(sql)) as ESCategory[];
+}
+
+export async function getSCategoryByCategoryId(categoryId: number) {
+  const sql = `SELECT * 
+              FROM SCategory 
+              WHERE categoryId = ${categoryId}`;
+
+  return (await query(sql)) as ESCategory[];
 }
 
 export async function getSBrandByBrandId(brandId: number) {
@@ -585,6 +626,29 @@ export async function updateSBrand({ sBrand }: { sBrand: SBrand }) {
   WHERE brandId = ?`;
 
   return (await upLete(sql, [name, slug, seo_title, seo_description, seo_keywords, id])) as AffectedRows;
+}
+
+export async function updateSCategory({ sCategory }: { sCategory: SCategory }) {
+  const { id, parent_id, referenceCode, name, slug, seo_title, seo_description, seo_keywords, seo_h1, description, image_url, active } = sCategory;
+  const sql = `UPDATE SCategory 
+  SET 
+    name = ?,
+    parentId = ?,
+    slug = ?,
+    referenceCode = ?,
+    description = ?,
+    imageUrl = ?,
+    seoTitle = ?,
+    seoDescription = ?,
+    seoKeywords = ?,
+    seoH1 = ?,
+    active = ?,
+    updateDate = now(),
+    fsActive = ?
+  WHERE categoryId = ?`;
+
+  return (await upLete(sql, [name, parent_id, slug, referenceCode, description, image_url,
+    seo_title, seo_description, seo_keywords, seo_h1, active, active ? 1 : 0, id])) as AffectedRows;
 }
 
 export async function updateSBrandByBrand({ dbBrand }: { dbBrand: ESBrand }) {

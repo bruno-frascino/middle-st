@@ -113,7 +113,8 @@ export interface SCategory {
   imageUrl: string;
   createDate: string;
   updateDate?: string;
-  active: number;
+  active: boolean;
+  fsActive: number;
 }
 
 export interface TBrand {

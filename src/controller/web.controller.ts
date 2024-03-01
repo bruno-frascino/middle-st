@@ -10,16 +10,8 @@ import {
   updateTrayDbBrand,
 } from '../services/middle.service';
 import { isValidIntegration, isValidSmDbBrand, isValidTrayDbBrand } from '../model/db.model';
-import { deleteSmBrand, getSmBrandSyncDetails, getSmCategorySyncDetails, insertSmBrand, updateSmBrand } from '../services/sm.service';
-import { isSmBrand, Brand as SBrand } from '../model/sm.model';
-
-// export interface CrudMap {
-//   function: Function;
-//   // validateInput: (object: any) => boolean;
-//   // insertFn?: (object: any) => Promise<TBrand | SBrand>;
-//   // updateFn?: (object: any) => Promise<TBrand | SBrand>;
-//   // deleteFn?: (id: number) => Promise<{ affectedRows: number }>;
-// }
+import { deleteSmBrand, getSmBrandSyncDetails, getSmCategorySyncDetails, insertSmBrand, insertSmCategory, updateSmBrand, updateSmCategory } from '../services/sm.service';
+import { isSmBrand, isSmCategory, Brand as SBrand } from '../model/sm.model';
 
 const brandHandlerMap = {
   'sm': {
@@ -47,6 +39,34 @@ const brandHandlerMap = {
     deleteFn: () => { },
   },
 };
+
+const categoryHandlerMap = {
+  'sm': {
+    validateInput: isSmCategory,
+    insertFn: insertSmCategory,
+    updateFn: updateSmCategory,
+    deleteFn: () => { },
+  },
+  'tray': {
+    validateInput: () => { },
+    insertFn: () => { },
+    updateFn: () => { },
+    deleteFn: () => { },
+  },
+  'fsi-sm': {
+    validateInput: () => { },
+    updateFn: () => { },
+    insertFn: () => { },
+    deleteFn: () => { },
+  },
+  'fsi-tray': {
+    validateInput: () => { },
+    updateFn: () => { },
+    insertFn: () => { },
+    deleteFn: () => { },
+  },
+};
+
 type SystemId = 'sm' | 'tray' | 'fsi-sm' | 'fsi-tray';
 enum SystemIdEnum {
   sm = 'sm',
@@ -265,6 +285,14 @@ export function getBrandCrudHandler(systemId: string | undefined) {
   return undefined;
 }
 
+export function getCategoryCrudHandler(systemId: string | undefined) {
+  if (systemId && validSystemIds.includes(systemId)) {
+    const handler = categoryHandlerMap[systemId as SystemId];
+    return handler;
+  }
+  return undefined;
+}
+
 // Handles SM Brand Update and Tray Brand Update
 export async function updateBrandHandler(req: Request, res: Response, next: NextFunction) {
   try {
@@ -319,22 +347,23 @@ export async function deleteBrandHandler(req: Request, res: Response, next: Next
 export async function insertCategoryHandler(req: Request, res: Response, next: NextFunction) {
   try {
     // Validate Input
-    const systemId = req.params.systemId as string;
-    const validSystemIds = ['sm', 'tray'];
-    if (!systemId || !validSystemIds.includes(systemId) || !brandHandlerMap[systemId as 'sm' | 'tray'].validateInput(req.body)) {
+    const systemId = req.params.systemId as string
+    const payload = req.body;
+    const handler = getCategoryCrudHandler(systemId);
+    if (!handler || (handler && !handler.validateInput(payload))) {
       const errorMsg = `Invalid request. Payload: ${JSON.stringify(req.body)} SystemId: ${systemId}`;
       log.error(errorMsg);
       res.status(400).json({ message: errorMsg });
       return;
     }
 
-    const brand = await brandHandlerMap[systemId as 'sm' | 'tray'].insertFn(req.body);
+    const category = await handler.insertFn(payload);
 
     res.status(200).json({
-      ...brand
+      ...category
     });
   } catch (err) {
-    log.error(`Unable to insert brand: ${err}`);
+    log.error(`Unable to insert category: ${err}`);
     next(err);
   }
 }
@@ -343,23 +372,23 @@ export async function insertCategoryHandler(req: Request, res: Response, next: N
 export async function updateCategoryHandler(req: Request, res: Response, next: NextFunction) {
   try {
     // Validate Input
-    const systemId = req.params.systemId as string;
-    const validSystemIds = ['sm', 'tray'];
-    if (!systemId || !validSystemIds.includes(systemId) || !brandHandlerMap[systemId as 'sm' | 'tray'].validateInput(req.body)) {
+    const systemId = req.params.systemId as string
+    const payload = req.body;
+    const handler = getCategoryCrudHandler(systemId);
+    if (!handler || (handler && !handler.validateInput(payload))) {
       const errorMsg = `Invalid request. Payload: ${JSON.stringify(req.body)} SystemId: ${systemId}`;
       log.error(errorMsg);
       res.status(400).json({ message: errorMsg });
       return;
     }
 
-    const brand = await brandHandlerMap[systemId as 'sm' | 'tray'].updateFn(req.body);
-    log.warn(`Updated SM Brand Brand: ${JSON.stringify(brand)}`);
+    const category = await handler.updateFn(payload);
 
     res.status(200).json({
-      ...brand
+      ...category
     });
   } catch (err) {
-    log.error(`Unable to update brand: ${err}`);
+    log.error(`Unable to update category: ${err}`);
     next(err);
   }
 }

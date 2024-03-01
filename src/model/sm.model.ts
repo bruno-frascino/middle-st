@@ -149,6 +149,10 @@ export interface Category {
   active: boolean;
 }
 
+export function isSmCategory(object: any) {
+  return !!(object.id && object.name && object.slug && typeof object.active === 'boolean');
+}
+
 export enum Condition {
   NOVO = 'Novo',
   USADO = 'Usado',
