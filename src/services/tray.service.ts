@@ -352,7 +352,7 @@ export async function updateTrayBrand(trayBrand: Brand) {
   if (result && result.affectedRows === 0) {
     throw new MiddleError(`No brand updated for internal id ${trayBrand.id}`, ErrorCategory.BUS);
   }
-  return getTrayBrandById(trayBrand.id);
+  return getTrayBrandByBrandId(trayBrand.id);
 }
 
 // First access
