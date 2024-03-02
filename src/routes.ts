@@ -1,7 +1,7 @@
 import { Express, Request, Response } from 'express';
 import {
   deleteBrandHandler,
-  deleteCateogryHandler,
+  deleteCategoryHandler,
   getIntegrationByStoreCodeHandler,
   initiateIntegrationHandler,
   insertBrandHandler,
@@ -54,5 +54,5 @@ export default function (app: Express) {
   // CRUD Operations for Category
   app.post('/api/category/:systemId', insertCategoryHandler);
   app.put('/api/category/:systemId', updateCategoryHandler);
-  app.delete('/api/category/:systemId/:id', deleteCateogryHandler);
+  app.delete('/api/category/:systemId/:id', deleteCategoryHandler);
 }
