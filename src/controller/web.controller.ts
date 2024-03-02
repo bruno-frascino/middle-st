@@ -7,10 +7,11 @@ import {
   getIntegrationDetails,
   updateIntegrationDetails,
   updateSmDbBrand,
+  updateSmDbCategory,
   updateTrayDbBrand,
 } from '../services/middle.service';
-import { isValidIntegration, isValidSmDbBrand, isValidTrayDbBrand } from '../model/db.model';
-import { deleteSmBrand, getSmBrandSyncDetails, getSmCategorySyncDetails, insertSmBrand, insertSmCategory, updateSmBrand, updateSmCategory } from '../services/sm.service';
+import { isValidIntegration, isValidSmDbBrand, isValidSmDbCategory, isValidTrayDbBrand } from '../model/db.model';
+import { deleteSmBrand, deleteSmCategory, getSmBrandSyncDetails, getSmCategorySyncDetails, insertSmBrand, insertSmCategory, updateSmBrand, updateSmCategory } from '../services/sm.service';
 import { isSmBrand, isSmCategory, Brand as SBrand } from '../model/sm.model';
 
 const brandHandlerMap = {
@@ -45,7 +46,7 @@ const categoryHandlerMap = {
     validateInput: isSmCategory,
     insertFn: insertSmCategory,
     updateFn: updateSmCategory,
-    deleteFn: () => { },
+    deleteFn: deleteSmCategory,
   },
   'tray': {
     validateInput: () => { },
@@ -54,8 +55,8 @@ const categoryHandlerMap = {
     deleteFn: () => { },
   },
   'fsi-sm': {
-    validateInput: () => { },
-    updateFn: () => { },
+    validateInput: isValidSmDbCategory,
+    updateFn: updateSmDbCategory,
     insertFn: () => { },
     deleteFn: () => { },
   },
@@ -394,22 +395,24 @@ export async function updateCategoryHandler(req: Request, res: Response, next: N
 }
 
 // TODO Handles SM and Tray Category Delete
-export async function deleteCateogryHandler(req: Request, res: Response, next: NextFunction) {
+export async function deleteCategoryHandler(req: Request, res: Response, next: NextFunction) {
   try {
     // Validate Input
     const systemId = req.params.systemId as string;
-    const brandId = req.params.brandId as string;
-    const validSystemIds = ['sm', 'tray'];
-    if (!systemId || !brandId || !validSystemIds.includes(systemId)) {
-      const errorMsg = `Invalid request with systemId: ${systemId} and brandId: ${brandId}`;
+    const id = req.params.id as string;
+    const handler = getCategoryCrudHandler(systemId);
+    if (!handler || !id) {
+      const errorMsg = `Invalid request with systemId: ${systemId} and category id: ${id}`;
       log.error(errorMsg);
       res.status(400).json({ message: errorMsg });
       return;
     }
 
-    await brandHandlerMap[systemId as 'sm' | 'tray'].deleteFn(Number(brandId));
+    const result = await handler.deleteFn(Number(id));
 
-    res.sendStatus(200);
+    res.status(200).json(
+      result?.affectedRows
+    );
   } catch (err) {
     log.error(`Unable to delete brand: ${err}`);
     next(err);

@@ -176,6 +176,19 @@ export function isValidSmDbBrand(object: any) {
   );
 }
 
+export function isValidSmDbCategory(object: any) {
+  return !!(
+    typeof object.id === 'number' &&
+    typeof object.categoryId === 'number' &&
+    typeof object.parentId === 'number' &&
+    object.name &&
+    object.slug &&
+    typeof object.active === 'number' &&
+    object.createDate &&
+    typeof object.fsActive === 'number'
+  );
+}
+
 export function isValidTrayDbBrand(object: any) {
   return !!(
     typeof object.id === 'number' &&

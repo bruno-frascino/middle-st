@@ -2,7 +2,7 @@ import log from '../logger';
 import { SBrand as ESBrand, Integration } from '../model/db.model';
 import { Brand, Category, Product, Sku, SmToken } from '../model/sm.model';
 import { addToCurrentTime, getCurrentUnixTime } from '../shared/utils/utils';
-import { getAllActiveIntegrations, getSBrandsByActiveState, getAllSBrands, getSCategoriesByActiveState, getAllSCategories, insertSBrand, updateSBrand, updateSConnectionDetails, getSBrandById, getSBrandByBrandId, deleteSBrand, insertSCategory, getSCategoryById, updateSCategory, getSCategoryByCategoryId } from '../db/db';
+import { getAllActiveIntegrations, getSBrandsByActiveState, getAllSBrands, getSCategoriesByActiveState, getAllSCategories, insertSBrand, updateSBrand, updateSConnectionDetails, getSBrandById, getSBrandByBrandId, deleteSBrand, insertSCategory, getSCategoryById, updateSCategory, getSCategoryByCategoryId, deleteSCategory } from '../db/db';
 import {
   deleteProduct,
   deleteSku,
@@ -257,6 +257,15 @@ export async function deleteSmBrand(id: number) {
     throw new MiddleError(`No brand deleted for internal id ${id}`, ErrorCategory.BUS);
   }
   log.info(`Deleted SM brand with id: ${id} - ${JSON.stringify(result)}`);
+  return result;
+}
+
+export async function deleteSmCategory(id: number) {
+  const result = await deleteSCategory(id);
+  if (result && result.affectedRows === 0) {
+    throw new MiddleError(`No category deleted for internal id ${id}`, ErrorCategory.BUS);
+  }
+  log.warn(`Deleted SM category with id: ${id} - ${JSON.stringify(result)}`);
   return result;
 }
 

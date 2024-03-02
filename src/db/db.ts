@@ -667,7 +667,29 @@ export async function updateSBrandByBrand({ dbBrand }: { dbBrand: ESBrand }) {
   return (await upLete(sql, [name, slug, seoTitle, seoDescription, seoKeywords, active, id])) as AffectedRows;
 }
 
+export async function updateSCategoryByCategory({ dbCategory }: { dbCategory: ESCategory }) {
+  const { id, parentId, referenceCode, name, slug, seoTitle, seoDescription, seoKeywords, seoH1, description, imageUrl, active, fsActive } = dbCategory;
+  const sql = `UPDATE SCategory 
+  SET 
+    name = ?,
+    parentId = ?,
+    slug = ?,
+    referenceCode = ?,
+    description = ?,
+    imageUrl = ?,
+    seoTitle = ?,
+    seoDescription = ?,
+    seoKeywords = ?,
+    seoH1 = ?,
+    active = ?,
+    updateDate = now(),
+    fsActive = ?
+  WHERE id = ?`;
 
+  return (await upLete(sql, [name, parentId, slug, referenceCode, description,
+    imageUrl, seoTitle, seoDescription, seoKeywords, seoH1,
+    active, fsActive, id])) as AffectedRows;
+}
 
 export async function updateSBrandStatus({ id, active }: { id: number, active: number }) {
 
@@ -714,6 +736,12 @@ export async function deleteSBrand(id: number) {
 
 export async function deleteTBrand(id: number) {
   const sql = `DELETE FROM TBrand WHERE id = ${id}`;
+
+  return (await upLete(sql)) as AffectedRows;
+}
+
+export async function deleteSCategory(id: number) {
+  const sql = `DELETE FROM SCategory WHERE id = ${id}`;
 
   return (await upLete(sql)) as AffectedRows;
 }
