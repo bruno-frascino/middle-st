@@ -128,15 +128,21 @@ export interface TBrand {
 }
 
 export interface TCategory {
-  id?: number; // internal category id
+  id: number; // internal category id
   categoryId: number; // external category id
   parentId: number;
   name: string;
+  description: string;
   smallDescription: string;
-  slug: string;
+  tOrder: number;
+  // slug: string;
+  // title: string;
+  hasProduct: number;
+  imageUrl: string; // Converted field from Tray api to match with SM
   createDate: string;
   updateDate?: string;
   active: number;
+  fsActive: number;
 }
 
 export interface RecordKey {
@@ -183,6 +189,19 @@ export function isValidSmDbCategory(object: any) {
     typeof object.parentId === 'number' &&
     object.name &&
     object.slug &&
+    typeof object.active === 'number' &&
+    object.createDate &&
+    typeof object.fsActive === 'number'
+  );
+}
+
+export function isValidTrayDbCategory(object: any) {
+  return !!(
+    typeof object.id === 'number' &&
+    typeof object.categoryId === 'number' &&
+    // typeof object.parentId === 'number' &&
+    object.name &&
+    // object.slug &&
     typeof object.active === 'number' &&
     object.createDate &&
     typeof object.fsActive === 'number'

@@ -1,8 +1,9 @@
 import config from 'config';
-import { Act, Brand, Notification, Product, TrayToken, Variant } from '../model/tray.model';
+import { Act, Brand, Category, Notification, Product, TrayToken, Variant } from '../model/tray.model';
 import log from '../logger';
 import {
   deleteTBrand,
+  deleteTCategory,
   getAllActiveIntegrations,
   getAllTBrands,
   getAllTCategories,
@@ -11,12 +12,16 @@ import {
   getTBrandById,
   getTBrandsByActiveState,
   getTCategoriesByActiveState,
+  getTCategoryByCategoryId,
+  getTCategoryById,
   insertNotification,
   insertTBrand,
+  insertTCategory,
   updateTBrand,
+  updateTCategory,
   updateTConnectionDetails,
 } from '../db/db';
-import { Notification as ENotification, Integration, TBrand } from '../model/db.model';
+import { Notification as ENotification, Integration } from '../model/db.model';
 import { EVarNames, convertStringToUnixTime, getCurrentUnixTime } from '../shared/utils/utils';
 import { getAuth, getBrands, getCategories, getProduct, getVariant, postAuth, putVariant } from '../resources/tray.api';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
@@ -316,9 +321,14 @@ export async function getTrayCategorySyncDetails() {
   };
 }
 
-export async function insertTrayBrand(trayBrand: TBrand) {
+export async function insertTrayBrand(trayBrand: Brand) {
   const newBrandRecordKey = await insertTBrand({ tBrand: trayBrand });
   return getTrayBrandById(newBrandRecordKey.id);
+}
+
+export async function insertTrayCategory(trayCategory: Category) {
+  const newRecordKey = await insertTCategory({ tCategory: trayCategory });
+  return getTrayCategoryById(newRecordKey.id);
 }
 
 export async function deleteTrayBrand(id: number) {
@@ -326,7 +336,16 @@ export async function deleteTrayBrand(id: number) {
   if (result && result.affectedRows === 0) {
     throw new MiddleError(`No tray brand deleted for internal id ${id}`, ErrorCategory.BUS);
   }
-  log.info(`Deleted brand with id: ${id} - ${result}`);
+  log.info(`Deleted tray brand with id: ${id} - ${result}`);
+  return result;
+}
+
+export async function deleteTrayCategory(id: number) {
+  const result = await deleteTCategory(id);
+  if (result && result.affectedRows === 0) {
+    throw new MiddleError(`No tray category deleted for internal id ${id}`, ErrorCategory.BUS);
+  }
+  log.info(`Deleted tray category with id: ${id} - ${result}`);
   return result;
 }
 
@@ -334,6 +353,14 @@ export async function getTrayBrandById(id: number) {
   const brands = await getTBrandById(id);
   if (brands && Array.isArray(brands) && brands.length === 1) {
     return brands[0];
+  }
+  return undefined;
+}
+
+export async function getTrayCategoryById(id: number) {
+  const categories = await getTCategoryById(id);
+  if (categories && Array.isArray(categories) && categories.length === 1) {
+    return categories[0];
   }
   return undefined;
 }
@@ -353,6 +380,22 @@ export async function updateTrayBrand(trayBrand: Brand) {
     throw new MiddleError(`No brand updated for internal id ${trayBrand.id}`, ErrorCategory.BUS);
   }
   return getTrayBrandByBrandId(trayBrand.id);
+}
+
+export async function updateTrayCategory(trayCategory: Category) {
+  const result = await updateTCategory({ tCategory: trayCategory });
+  if (result && result.affectedRows === 0) {
+    throw new MiddleError(`No category updated for internal id ${trayCategory.id}`, ErrorCategory.BUS);
+  }
+  return getTrayCategoryByCategoryId(parseInt(trayCategory.id, 10));
+}
+
+export async function getTrayCategoryByCategoryId(id: number) {
+  const categories = await getTCategoryByCategoryId(id);
+  if (categories && Array.isArray(categories) && categories.length === 1) {
+    return categories[0];
+  }
+  return undefined;
 }
 
 // First access

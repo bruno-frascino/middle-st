@@ -272,14 +272,21 @@ interface CategoriesWrapper {
   Category: Category;
 }
 
-interface Category {
-  id: number;
-  parent_id: number;
+export interface Category {
+  id: string;
+  parent_id: string;
   name: string;
   description: string;
   small_description: string;
-  title: string;
   Images?: Image[];
-  slug: string;
-  has_product: number;
+  order: string;
+  has_product: string;
+  active: string;
+}
+
+export function isTrayCategory(object: any) {
+  return !!(object.id &&
+    object.name &&
+    object.active
+  );
 }

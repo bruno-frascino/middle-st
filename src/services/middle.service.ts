@@ -1,6 +1,6 @@
 /* eslint-disable no-await-in-loop */
 import config from 'config';
-import { IProduct, Integration, SBrand as ESBrand, TBrand as ETBrand, SCategory as ESCategory } from '../model/db.model';
+import { IProduct, Integration, SBrand as ESBrand, TBrand as ETBrand, SCategory as ESCategory, TCategory as ETCategory } from '../model/db.model';
 import { Act, Scope, Product as TProduct, Variant } from '../model/tray.model';
 import { Condition, Product as SProduct, Sku } from '../model/sm.model';
 import { EVarNames, getCurrentUnixTime } from '../shared/utils/utils';
@@ -13,6 +13,7 @@ import {
   getFreshTrayCategories,
   getSlimNotifications,
   getTrayBrandById,
+  getTrayCategoryById,
   getTrayProduct,
   getTrayVariant,
   provideTrayAccessToken,
@@ -63,6 +64,7 @@ import {
   updateSBrandStatus,
   updateSCategoryByCategory,
   updateTBrandByBrand,
+  updateTCategoryByCategory,
 } from '../db/db';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
 
@@ -117,6 +119,14 @@ export async function updateSmDbCategory(smDbCategory: ESCategory) {
     throw new MiddleError(`No Sm category updated for internal id ${smDbCategory.id}`, ErrorCategory.BUS);
   }
   return getSmCategoryById(smDbCategory.id);
+}
+
+export async function updateTrayDbCategory(trayDbCategory: ETCategory) {
+  const result = await updateTCategoryByCategory({ dbCategory: trayDbCategory });
+  if (result && result.affectedRows === 0) {
+    throw new MiddleError(`No Tray category updated for internal id ${trayDbCategory.id}`, ErrorCategory.BUS);
+  }
+  return getTrayCategoryById(trayDbCategory.id);
 }
 
 export async function updateTrayDbBrand(trayDbBrand: ETBrand) {

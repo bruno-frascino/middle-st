@@ -11,15 +11,13 @@ import {
   SCategory as ESCategory,
   TBrand as ETBrand,
   TCategory as ETCategory,
-  IError,
   IProduct,
   IProductSku,
   Integration,
   RecordKey,
-  TBrand,
 } from '../model/db.model';
-import { Notification, Brand as TrayBrand } from '../model/tray.model';
-import { Brand as SBrand, Category as SCategory } from '../model/sm.model';
+import { Notification, Brand as TrayBrand, Category as TrayCategory } from '../model/tray.model';
+import { Brand as SmBrand, Category as SmCategory } from '../model/sm.model';
 
 let connectionPool: mysql.Pool;
 
@@ -506,7 +504,7 @@ export async function getAllTCategories() {
   return (await query(sql)) as ETCategory[];
 }
 
-export async function insertSBrand({ sBrand }: { sBrand: SBrand }) {
+export async function insertSBrand({ sBrand }: { sBrand: SmBrand }) {
   const { id, name, slug, seo_title, seo_description, seo_keywords } = sBrand;
   const sql = `INSERT INTO SBrand(
     brandId,
@@ -524,7 +522,7 @@ export async function insertSBrand({ sBrand }: { sBrand: SBrand }) {
   return (await insert(sql, [id, name, slug, seo_title, seo_description, seo_keywords])) as RecordKey;
 }
 
-export async function insertSCategory({ sCategory }: { sCategory: SCategory }) {
+export async function insertSCategory({ sCategory }: { sCategory: SmCategory }) {
   const { id, parent_id, referenceCode, name, slug, seo_title, seo_description, seo_keywords, seo_h1, description, image_url, active } = sCategory;
   const sql = `INSERT INTO SCategory(
     categoryId,
@@ -542,11 +540,11 @@ export async function insertSCategory({ sCategory }: { sCategory: SCategory }) {
     createDate, 
     fsActive) 
     VALUES(
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), 1
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), ?
   );`;
 
   return (await insert(sql, [id, parent_id, referenceCode, name, slug, seo_title,
-    seo_description, seo_keywords, seo_h1, description, image_url, active])) as RecordKey;
+    seo_description, seo_keywords, seo_h1, description, image_url, active, active])) as RecordKey;
 }
 
 export async function getSBrandById(id: number) {
@@ -581,7 +579,7 @@ export async function getSBrandByBrandId(brandId: number) {
   return (await query(sql)) as ESBrand[];
 }
 
-export async function insertTBrand({ tBrand }: { tBrand: TBrand }) {
+export async function insertTBrand({ tBrand }: { tBrand: TrayBrand }) {
   const { id, brand, slug } = tBrand;
   const sql = `INSERT INTO TBrand(
     brandId,
@@ -596,12 +594,51 @@ export async function insertTBrand({ tBrand }: { tBrand: TBrand }) {
   return (await insert(sql, [id, brand, slug])) as RecordKey;
 }
 
+export async function insertTCategory({ tCategory }: { tCategory: TrayCategory }) {
+  const { id, parent_id, name, description, small_description, Images, order, has_product, active } = tCategory;
+  const imageUrl = Images?.[0]?.https || ''; // converted field from Tray api to match with SM
+  const sql = `INSERT INTO TCategory(
+    categoryId,
+    parentId,
+    name, 
+    description,
+    smallDescription,
+    imageUrl,
+    hasProduct,
+    tOrder,
+    active,
+    createDate, 
+    fsActive) 
+    VALUES(
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), ?
+  );`;
+
+  return (await insert(sql, [id, parent_id ? Number(parent_id) : undefined, name, description, small_description,
+    imageUrl, has_product, order, active, active])) as RecordKey;
+}
+
 export async function getTBrandById(id: number) {
   const sql = `SELECT * 
               FROM TBrand 
               WHERE id = ${id}`;
 
   return (await query(sql)) as ETBrand[];
+}
+
+export async function getTCategoryById(id: number) {
+  const sql = `SELECT * 
+              FROM TCategory 
+              WHERE id = ${id}`;
+
+  return (await query(sql)) as ETCategory[];
+}
+
+export async function getTCategoryByCategoryId(categoryId: number) {
+  const sql = `SELECT * 
+              FROM TCategory 
+              WHERE categoryId = ${categoryId}`;
+
+  return (await query(sql)) as ETCategory[];
 }
 
 export async function getTBrandByBrandId(brandId: number) {
@@ -612,7 +649,7 @@ export async function getTBrandByBrandId(brandId: number) {
   return (await query(sql)) as ETBrand[];
 }
 
-export async function updateSBrand({ sBrand }: { sBrand: SBrand }) {
+export async function updateSBrand({ sBrand }: { sBrand: SmBrand }) {
   const { id, name, slug, seo_title, seo_description, seo_keywords } = sBrand;
   const sql = `UPDATE SBrand 
   SET 
@@ -628,7 +665,7 @@ export async function updateSBrand({ sBrand }: { sBrand: SBrand }) {
   return (await upLete(sql, [name, slug, seo_title, seo_description, seo_keywords, id])) as AffectedRows;
 }
 
-export async function updateSCategory({ sCategory }: { sCategory: SCategory }) {
+export async function updateSCategory({ sCategory }: { sCategory: SmCategory }) {
   const { id, parent_id, referenceCode, name, slug, seo_title, seo_description, seo_keywords, seo_h1, description, image_url, active } = sCategory;
   const sql = `UPDATE SCategory 
   SET 
@@ -649,6 +686,29 @@ export async function updateSCategory({ sCategory }: { sCategory: SCategory }) {
 
   return (await upLete(sql, [name, parent_id, slug, referenceCode, description, image_url,
     seo_title, seo_description, seo_keywords, seo_h1, active, active ? 1 : 0, id])) as AffectedRows;
+}
+
+export async function updateTCategory({ tCategory }: { tCategory: TrayCategory }) {
+  log.warn(`tCategory: ${JSON.stringify(tCategory)}`)
+  const { id, parent_id, name, description, small_description, Images, order, has_product, active } = tCategory;
+  const imageUrl = Images?.[0]?.https || ''; // converted field from Tray api to match with SM
+  const parsedActive = parseInt(active, 10);
+  const sql = `UPDATE TCategory 
+  SET 
+    name = ?,
+    parentId = ?,
+    smallDescription = ?,
+    description = ?,
+    hasProduct = ?,
+    tOrder = ?,
+    imageUrl = ?,
+    active = ?,
+    updateDate = now(),
+    fsActive = ?
+  WHERE categoryId = ?`;
+
+  return (await upLete(sql, [name, parent_id ? parseInt(parent_id, 10) : undefined, small_description, description,
+    has_product ? parseInt(has_product, 10) : undefined, order ? parseInt(order, 10) : undefined, imageUrl, parsedActive, parsedActive ? 1 : 0, id])) as AffectedRows;
 }
 
 export async function updateSBrandByBrand({ dbBrand }: { dbBrand: ESBrand }) {
@@ -689,6 +749,26 @@ export async function updateSCategoryByCategory({ dbCategory }: { dbCategory: ES
   return (await upLete(sql, [name, parentId, slug, referenceCode, description,
     imageUrl, seoTitle, seoDescription, seoKeywords, seoH1,
     active, fsActive, id])) as AffectedRows;
+}
+
+export async function updateTCategoryByCategory({ dbCategory }: { dbCategory: ETCategory }) {
+  const { id, parentId, name, hasProduct, tOrder, smallDescription, description, imageUrl, active, fsActive } = dbCategory;
+  const sql = `UPDATE TCategory 
+  SET 
+    name = ?,
+    parentId = ?,
+    description = ?,
+    imageUrl = ?,
+    smallDescription = ?,
+    tOrder = ?,
+    hasProduct = ?,
+    active = ?,
+    updateDate = now(),
+    fsActive = ?
+  WHERE id = ?`;
+
+  return (await upLete(sql, [name, parentId, description,
+    imageUrl, smallDescription, tOrder, hasProduct, active, fsActive, id])) as AffectedRows;
 }
 
 export async function updateSBrandStatus({ id, active }: { id: number, active: number }) {
@@ -736,6 +816,12 @@ export async function deleteSBrand(id: number) {
 
 export async function deleteTBrand(id: number) {
   const sql = `DELETE FROM TBrand WHERE id = ${id}`;
+
+  return (await upLete(sql)) as AffectedRows;
+}
+
+export async function deleteTCategory(id: number) {
+  const sql = `DELETE FROM TCategory WHERE id = ${id}`;
 
   return (await upLete(sql)) as AffectedRows;
 }

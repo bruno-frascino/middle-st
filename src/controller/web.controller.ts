@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import log from '../logger';
-import { Notification, isNotification, isTrayBrand, Brand as TBrand } from '../model/tray.model';
-import { deleteTrayBrand, getConsumerKey, getTrayBrandSyncDetails, getTrayCategorySyncDetails, handleNotification, insertTrayBrand, updateTrayBrand } from '../services/tray.service';
+import { Notification, isNotification, isTrayBrand, Brand as TBrand, isTrayCategory } from '../model/tray.model';
+import { deleteTrayBrand, deleteTrayCategory, getConsumerKey, getTrayBrandSyncDetails, getTrayCategorySyncDetails, handleNotification, insertTrayBrand, insertTrayCategory, updateTrayBrand, updateTrayCategory } from '../services/tray.service';
 import {
   createIntegration,
   getIntegrationDetails,
@@ -9,8 +9,9 @@ import {
   updateSmDbBrand,
   updateSmDbCategory,
   updateTrayDbBrand,
+  updateTrayDbCategory,
 } from '../services/middle.service';
-import { isValidIntegration, isValidSmDbBrand, isValidSmDbCategory, isValidTrayDbBrand } from '../model/db.model';
+import { isValidIntegration, isValidSmDbBrand, isValidSmDbCategory, isValidTrayDbBrand, isValidTrayDbCategory } from '../model/db.model';
 import { deleteSmBrand, deleteSmCategory, getSmBrandSyncDetails, getSmCategorySyncDetails, insertSmBrand, insertSmCategory, updateSmBrand, updateSmCategory } from '../services/sm.service';
 import { isSmBrand, isSmCategory, Brand as SBrand } from '../model/sm.model';
 
@@ -49,10 +50,10 @@ const categoryHandlerMap = {
     deleteFn: deleteSmCategory,
   },
   'tray': {
-    validateInput: () => { },
-    insertFn: () => { },
-    updateFn: () => { },
-    deleteFn: () => { },
+    validateInput: isTrayCategory,
+    insertFn: insertTrayCategory,
+    updateFn: updateTrayCategory,
+    deleteFn: deleteTrayCategory,
   },
   'fsi-sm': {
     validateInput: isValidSmDbCategory,
@@ -61,8 +62,8 @@ const categoryHandlerMap = {
     deleteFn: () => { },
   },
   'fsi-tray': {
-    validateInput: () => { },
-    updateFn: () => { },
+    validateInput: isValidTrayDbCategory,
+    updateFn: updateTrayDbCategory,
     insertFn: () => { },
     deleteFn: () => { },
   },
@@ -384,7 +385,7 @@ export async function updateCategoryHandler(req: Request, res: Response, next: N
     }
 
     const category = await handler.updateFn(payload);
-
+    log.warn(`Category updated: ${JSON.stringify(category)}`);
     res.status(200).json({
       ...category
     });
