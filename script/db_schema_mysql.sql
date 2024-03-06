@@ -122,11 +122,16 @@ CREATE TABLE TCategory(
   categoryId INT UNSIGNED UNIQUE NOT NULL,
   parentId INT UNSIGNED,
   name VARCHAR(100),
+  description VARCHAR(1000),
   smallDescription VARCHAR(300),
-  slug VARCHAR(100),
+  hasProduct BOOLEAN NOT NULL,
+  tOrder INT UNSIGNED NOT NULL,
+  imageUrl VARCHAR(100),
+  -- slug VARCHAR(100),
   createDate DATETIME NOT NULL,
   updateDate DATETIME, 
-  active BOOLEAN NOT NULL
+  active BOOLEAN NOT NULL,
+  fsActive BOOLEAN NOT NULL
 );
 
 CREATE TABLE TBrand(
