@@ -2,10 +2,8 @@ DROP TABLE Notification;
 DROP TABLE IProduct_SKU;
 DROP TABLE IProduct;
 DROP TABLE Integration;
--- DROP TABLE Brand_Map;
 DROP TABLE SBrand;
 DROP TABLE TBrand;
--- DROP TABLE Category_Map;
 DROP TABLE IError;
 DROP TABLE SCategory;
 DROP TABLE TCategory;
@@ -85,17 +83,21 @@ CREATE TABLE IError(
   updateDate DATETIME
 );
 
-CREATE TABLE SBrand(
+CREATE TABLE TCategory(
   id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  brandId INT UNSIGNED UNIQUE NOT NULL,
+  categoryId INT UNSIGNED UNIQUE NOT NULL,
+  parentId INT UNSIGNED,
   name VARCHAR(100),
-  slug VARCHAR(100),
-  seoTitle VARCHAR(100),
-  seoDescription VARCHAR(200),
-  seoKeywords VARCHAR(100),
+  description VARCHAR(1000),
+  smallDescription VARCHAR(300),
+  hasProduct BOOLEAN NOT NULL,
+  tOrder INT UNSIGNED NOT NULL,
+  imageUrl VARCHAR(100),
+  -- slug VARCHAR(100),
   createDate DATETIME NOT NULL,
   updateDate DATETIME, 
-  active BOOLEAN NOT NULL
+  active BOOLEAN NOT NULL,
+  fsActive BOOLEAN NOT NULL
 );
 
 CREATE TABLE SCategory(
@@ -114,24 +116,11 @@ CREATE TABLE SCategory(
   createDate DATETIME NOT NULL,
   updateDate DATETIME, 
   active BOOLEAN NOT NULL,
-  fsActive BOOLEAN NOT NULL
-);
-
-CREATE TABLE TCategory(
-  id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  categoryId INT UNSIGNED UNIQUE NOT NULL,
-  parentId INT UNSIGNED,
-  name VARCHAR(100),
-  description VARCHAR(1000),
-  smallDescription VARCHAR(300),
-  hasProduct BOOLEAN NOT NULL,
-  tOrder INT UNSIGNED NOT NULL,
-  imageUrl VARCHAR(100),
-  -- slug VARCHAR(100),
-  createDate DATETIME NOT NULL,
-  updateDate DATETIME, 
-  active BOOLEAN NOT NULL,
-  fsActive BOOLEAN NOT NULL
+  fsActive BOOLEAN NOT NULL,
+  tCategoryId INT UNSIGNED,
+  FOREIGN KEY (tCategoryId)
+      REFERENCES TCategory(id)
+      ON DELETE NO ACTION
 );
 
 CREATE TABLE TBrand(
@@ -144,54 +133,59 @@ CREATE TABLE TBrand(
   active BOOLEAN NOT NULL
 );
 
--- T Brand <-> S Brand
-CREATE TABLE SBrand_x_TBrand(
-  sId INT UNSIGNED UNIQUE NOT NULL,
-  sBrandId INT UNSIGNED UNIQUE NOT NULL,
-  sBrandName VARCHAR(100) NOT NULL,
-  tId INT UNSIGNED UNIQUE NOT NULL,
-  tBrandId INT UNSIGNED UNIQUE,
-  tBrandName VARCHAR(100),
+CREATE TABLE SBrand(
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  brandId INT UNSIGNED UNIQUE NOT NULL,
+  name VARCHAR(100),
+  slug VARCHAR(100),
+  seoTitle VARCHAR(100),
+  seoDescription VARCHAR(200),
+  seoKeywords VARCHAR(100),
   createDate DATETIME NOT NULL,
   updateDate DATETIME, 
   active BOOLEAN NOT NULL,
-  PRIMARY KEY (sId, tId),
-  FOREIGN KEY (sId)
-      REFERENCES SBrand(id)
-      ON DELETE CASCADE,
-  FOREIGN KEY (tId)
+  tBrandId INT UNSIGNED,
+  FOREIGN KEY (tBrandId)
       REFERENCES TBrand(id)
-      ON DELETE CASCADE
+      ON DELETE NO ACTION
 );
 
--- T Category <-> S Category
-CREATE TABLE SCategory_x_TCategory(
-  sId INT UNSIGNED UNIQUE NOT NULL,
-  sCategoryId INT UNSIGNED UNIQUE NOT NULL,
-  sCategoryName VARCHAR(100) NOT NULL,
-  tId INT UNSIGNED UNIQUE NOT NULL,
-  tCategoryId INT UNSIGNED UNIQUE,
-  tCategoryName VARCHAR(100),
-  createDate DATETIME NOT NULL,
-  updateDate DATETIME, 
-  active BOOLEAN NOT NULL,
-  PRIMARY KEY (sId, tId),
-  FOREIGN KEY (sId)
-      REFERENCES SCategory(id)
-      ON DELETE CASCADE,
-  FOREIGN KEY (tId)
-      REFERENCES TCategory(id)
-      ON DELETE CASCADE
-);
-
--- CREATE TABLE SBrandAction(
---   id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
---   brandId INT UNSIGNED NOT NULL,
---   action VARCHAR(6),
---   slug VARCHAR(100),
---   seoTitle VARCHAR(100),
---   seoDescription VARCHAR(200),
---   seoKeywords VARCHAR(100)
+-- -- T Brand <-> S Brand
+-- CREATE TABLE SBrand_x_TBrand(
+--   sId INT UNSIGNED UNIQUE NOT NULL,
+--   sBrandId INT UNSIGNED UNIQUE NOT NULL,
+--   sBrandName VARCHAR(100) NOT NULL,
+--   tId INT UNSIGNED UNIQUE NOT NULL,
+--   tBrandId INT UNSIGNED UNIQUE,
+--   tBrandName VARCHAR(100),
 --   createDate DATETIME NOT NULL,
 --   updateDate DATETIME, 
+--   active BOOLEAN NOT NULL,
+--   PRIMARY KEY (sId, tId),
+--   FOREIGN KEY (sId)
+--       REFERENCES SBrand(id)
+--       ON DELETE CASCADE,
+--   FOREIGN KEY (tId)
+--       REFERENCES TBrand(id)
+--       ON DELETE CASCADE
+-- );
+
+-- -- T Category <-> S Category
+-- CREATE TABLE SCategory_x_TCategory(
+--   sId INT UNSIGNED UNIQUE NOT NULL,
+--   sCategoryId INT UNSIGNED UNIQUE NOT NULL,
+--   sCategoryName VARCHAR(100) NOT NULL,
+--   tId INT UNSIGNED UNIQUE NOT NULL,
+--   tCategoryId INT UNSIGNED UNIQUE,
+--   tCategoryName VARCHAR(100),
+--   createDate DATETIME NOT NULL,
+--   updateDate DATETIME, 
+--   active BOOLEAN NOT NULL,
+--   PRIMARY KEY (sId, tId),
+--   FOREIGN KEY (sId)
+--       REFERENCES SCategory(id)
+--       ON DELETE CASCADE,
+--   FOREIGN KEY (tId)
+--       REFERENCES TCategory(id)
+--       ON DELETE CASCADE
 -- );
