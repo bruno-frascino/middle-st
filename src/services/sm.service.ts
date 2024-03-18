@@ -252,6 +252,12 @@ export async function getSmCategorySyncDetails() {
 }
 
 export async function deleteSmBrand(id: number) {
+  // Check for references
+  const brand = await getSmBrandById(id);
+  // Check TBrandId reference
+  if (brand && brand.tBrandId) {
+    throw new MiddleError(`Sm Brand ${brand.name} has a Tray Brand reference`, ErrorCategory.BUS);
+  }
   const result = await deleteSBrand(id);
   if (result && result.affectedRows === 0) {
     throw new MiddleError(`No brand deleted for internal id ${id}`, ErrorCategory.BUS);

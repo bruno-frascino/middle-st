@@ -4,8 +4,10 @@ import log from '../logger';
 import { EVarNames } from '../shared/utils/utils';
 import {
   AffectedRows,
-  Brand_Map,
-  Category_Map,
+  BrandSyncData,
+  CategorySyncData,
+  // Brand_Map,
+  // Category_Map,
   Notification as ENotification,
   SBrand as ESBrand,
   SCategory as ESCategory,
@@ -408,32 +410,32 @@ export async function getIProductSkuByVariant({ tVariantId }: { tVariantId: numb
   return (await query(sql)) as IProductSku;
 }
 
-export async function getBrandMapByTName({ tBrandName }: { tBrandName: string }) {
-  const sql = `SELECT *
-  FROM Brand_Map
-  WHERE UPPER(sBrandName) = UPPER(${tBrandName})
-  AND active = 1;`;
+// export async function getBrandMapByTName({ tBrandName }: { tBrandName: string }) {
+//   const sql = `SELECT *
+//   FROM Brand_Map
+//   WHERE UPPER(sBrandName) = UPPER(${tBrandName})
+//   AND active = 1;`;
 
-  return (await query(sql)) as Brand_Map;
-}
+//   return (await query(sql)) as Brand_Map;
+// }
 
-export async function getCategoryMapByTId({ tCategoryId }: { tCategoryId: number }) {
-  const sql = `SELECT *
-  FROM Category_Map
-  WHERE sCategoryId = ${tCategoryId}
-  AND active = 1;`;
+// export async function getCategoryMapByTId({ tCategoryId }: { tCategoryId: number }) {
+//   const sql = `SELECT *
+//   FROM Category_Map
+//   WHERE sCategoryId = ${tCategoryId}
+//   AND active = 1;`;
 
-  return (await query(sql)) as Category_Map;
-}
+//   return (await query(sql)) as Category_Map;
+// }
 
-export async function getCategoryMapByTName({ tCategoryName }: { tCategoryName: string }) {
-  const sql = `SELECT *
-  FROM Category_Map
-  WHERE UPPER(sCategoryName) = UPPER(${tCategoryName})
-  AND active = 1;`;
+// export async function getCategoryMapByTName({ tCategoryName }: { tCategoryName: string }) {
+//   const sql = `SELECT *
+//   FROM Category_Map
+//   WHERE UPPER(sCategoryName) = UPPER(${tCategoryName})
+//   AND active = 1;`;
 
-  return (await query(sql)) as Category_Map;
-}
+//   return (await query(sql)) as Category_Map;
+// }
 
 export async function getIProductSkusByIProduct(iProductId: number) {
   const sql = `SELECT * 
@@ -500,6 +502,120 @@ export async function getTCategoriesByActiveState({ active }: { active: boolean 
 export async function getAllTCategories() {
   const sql = `SELECT * FROM TCategory 
     ORDER BY categoryId;`;
+
+  return (await query(sql)) as ETCategory[];
+}
+
+export async function getBrandSyncData() {
+  const sql = `SELECT 
+    S.id as sId,
+    S.brandId as sBrandId,
+    S.name as sName,
+    S.active as sActive,
+    T.id as tId,
+    T.brandId as tBrandId,
+    T.brand as tBrand,
+    T.active as tActive 
+  FROM SBrand S 
+  LEFT JOIN TBrand T ON S.tBrandId = T.id 
+    WHERE S.active = 1
+    ORDER BY S.brandId;`;
+
+  return (await query(sql)) as BrandSyncData[];
+}
+
+export async function getCategorySyncData() {
+  const sql = `SELECT 
+    S.id as sId,
+    S.categoryId as sCategoryId,
+    S.name as sName,
+    S.fsActive as sFsActive,
+    T.id as tId,
+    T.categoryId as tCategoryId,
+    T.name as tName,
+    T.fsActive as tFsActive 
+  FROM SCategory S 
+  LEFT JOIN TCategory T ON S.tCategoryId = T.id 
+    WHERE S.fsActive = 1
+    ORDER BY S.categoryId;`;
+
+  return (await query(sql)) as CategorySyncData[];
+}
+
+export async function getBrandSyncDataBySId({ sId }: { sId: number }) {
+  const sql = `SELECT 
+    S.id as sId,
+    S.brandId as sBrandId,
+    S.name as sName,
+    S.active as sActive,
+    T.id as tId,
+    T.brandId as tBrandId,
+    T.brand as tBrand,
+    T.active as tActive 
+  FROM SBrand S 
+  LEFT JOIN TBrand T ON S.tBrandId = T.id 
+    WHERE S.id = ${sId}
+      AND S.active = 1;`;
+
+  return (await query(sql)) as BrandSyncData[];
+}
+
+export async function getCategorySyncDataBySId({ sId }: { sId: number }) {
+  const sql = `SELECT 
+    S.id as sId,
+    S.categoryId as sCategoryId,
+    S.name as sName,
+    S.fsActive as sFsActive,
+    T.id as tId,
+    T.categoryId as tCategoryId,
+    T.name as tName,
+    T.fsActive as tFsActive 
+  FROM SCategory S 
+  LEFT JOIN TCategory T ON S.tCategoryId = T.id 
+    WHERE S.id = ${sId}
+      AND S.fsActive = 1;`;
+
+  return (await query(sql)) as CategorySyncData[];
+}
+
+export async function getBrandUnsyncedData() {
+  const sql = `SELECT 
+    T.id,
+    T.brandId,
+    T.slug,
+    T.brand,
+    T.createDate,
+    T.updateDate,
+    T.active
+  FROM TBrand T
+  LEFT JOIN SBrand S ON T.id = S.tBrandId 
+    WHERE S.tBrandId IS NULL
+      AND T.active = 1
+    ORDER BY T.brandId;`;
+
+  return (await query(sql)) as ETBrand[];
+}
+
+export async function getCategoryUnsyncedData() {
+  const sql = `SELECT 
+    T.id,
+    T.categoryId,
+    T.parentId,
+    T.name,
+    T.description,
+    T.smallDescription,
+    T.tOrder,
+    T.hasProduct,
+    T.imageUrl,
+    T.createDate,
+    T.updateDate,
+    T.active,
+    T.fsActive
+  FROM TCategory T
+  LEFT JOIN SCategory S ON T.id = S.tCategoryId 
+    WHERE S.tCategoryId IS NULL
+      AND T.fsActive = 1
+    ORDER BY T.categoryId;`;
 
   return (await query(sql)) as ETCategory[];
 }
@@ -712,7 +828,7 @@ export async function updateTCategory({ tCategory }: { tCategory: TrayCategory }
 }
 
 export async function updateSBrandByBrand({ dbBrand }: { dbBrand: ESBrand }) {
-  const { id, name, slug, seoTitle, seoDescription, seoKeywords, active } = dbBrand;
+  const { id, name, slug, seoTitle, seoDescription, seoKeywords, tBrandId, active } = dbBrand;
   const sql = `UPDATE SBrand 
   SET 
     name = ?,
@@ -721,14 +837,15 @@ export async function updateSBrandByBrand({ dbBrand }: { dbBrand: ESBrand }) {
     seoDescription = ?,
     seoKeywords = ?,
     updateDate = now(),
-    active = ?
+    active = ?,
+    tBrandId = ?
   WHERE id = ?`;
 
-  return (await upLete(sql, [name, slug, seoTitle, seoDescription, seoKeywords, active, id])) as AffectedRows;
+  return (await upLete(sql, [name, slug, seoTitle, seoDescription, seoKeywords, active, tBrandId, id])) as AffectedRows;
 }
 
 export async function updateSCategoryByCategory({ dbCategory }: { dbCategory: ESCategory }) {
-  const { id, parentId, referenceCode, name, slug, seoTitle, seoDescription, seoKeywords, seoH1, description, imageUrl, active, fsActive } = dbCategory;
+  const { id, parentId, referenceCode, name, slug, seoTitle, seoDescription, seoKeywords, seoH1, description, imageUrl, active, fsActive, tCategoryId } = dbCategory;
   const sql = `UPDATE SCategory 
   SET 
     name = ?,
@@ -741,13 +858,14 @@ export async function updateSCategoryByCategory({ dbCategory }: { dbCategory: ES
     seoDescription = ?,
     seoKeywords = ?,
     seoH1 = ?,
+    tCategoryId = ?,
     active = ?,
     updateDate = now(),
     fsActive = ?
   WHERE id = ?`;
 
   return (await upLete(sql, [name, parentId, slug, referenceCode, description,
-    imageUrl, seoTitle, seoDescription, seoKeywords, seoH1,
+    imageUrl, seoTitle, seoDescription, seoKeywords, seoH1, tCategoryId,
     active, fsActive, id])) as AffectedRows;
 }
 

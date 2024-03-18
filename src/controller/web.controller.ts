@@ -3,8 +3,14 @@ import log from '../logger';
 import { Notification, isNotification, isTrayBrand, Brand as TBrand, isTrayCategory } from '../model/tray.model';
 import { deleteTrayBrand, deleteTrayCategory, getConsumerKey, getTrayBrandSyncDetails, getTrayCategorySyncDetails, handleNotification, insertTrayBrand, insertTrayCategory, updateTrayBrand, updateTrayCategory } from '../services/tray.service';
 import {
+  correlateBrands,
+  correlateCategories,
   createIntegration,
+  getBrandSyncDetails,
+  getCategorySyncDetails,
   getIntegrationDetails,
+  unrelateBrands,
+  unrelateCategories,
   updateIntegrationDetails,
   updateSmDbBrand,
   updateSmDbCategory,
@@ -21,6 +27,7 @@ const brandHandlerMap = {
     insertFn: insertSmBrand,
     updateFn: updateSmBrand,
     deleteFn: deleteSmBrand,
+    getFn: () => { },
   },
   'tray': {
     validateInput: isTrayBrand,
@@ -175,19 +182,97 @@ export async function getIntegrationByStoreCodeHandler(req: Request, res: Respon
   }
 }
 
-// TODO remove
-// export async function syncBrandsHandler(req: Request, res: Response, next: NextFunction) {
-//   try {
-//     const brandInformation = await getBrandSyncDetails();
+//
+export async function getBrandSyncDataHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const brandSyncDetails = await getBrandSyncDetails();
 
-//     res.status(200).json({
-//       ...brandInformation,
-//     });
-//   } catch (err) {
-//     log.error(`Unable to fetch Brand sync details with error: ${err}`);
-//     next(err);
-//   }
-// }
+    res.status(200).json({
+      ...brandSyncDetails,
+    });
+  } catch (err) {
+    log.error(`Unable to fetch Brand sync details with error: ${err}`);
+    next(err);
+  }
+}
+
+export async function correlateBrandsHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const payload = req.body;
+    if (!payload || !payload.sId || !payload.tId) {
+      log.error(`Invalid request. Payload: ${JSON.stringify(req.body)}`);
+      res.status(400).json({ message: 'Invalid request' });
+      return;
+    }
+    await correlateBrands(payload);
+
+    res.sendStatus(200);
+
+  } catch (err) {
+    log.error(`Unable to correlate Brands: ${err}`);
+    next(err);
+  }
+}
+
+export async function correlateCategoriesHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const payload = req.body;
+    if (!payload || !payload.sId || !payload.tId) {
+      log.error(`Invalid request. Payload: ${JSON.stringify(req.body)}`);
+      res.status(400).json({ message: 'Invalid request' });
+      return;
+    }
+    await correlateCategories(payload);
+
+    res.sendStatus(200);
+
+  } catch (err) {
+    log.error(`Unable to correlate Categories: ${err}`);
+    next(err);
+  }
+}
+
+export async function unrelateBrandsHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const sId = req.params.sId as string;
+    if (!sId) {
+      // log.warn(`req.params ${req.params}`);
+      log.error(`Invalid request. Params: ${req.params.sId}`);
+      res.status(400).json({ message: 'Invalid request' });
+      return;
+    }
+    const result = await unrelateBrands(Number.parseInt(sId, 10));
+
+    res.status(200).json({
+      ...result,
+    });
+
+  } catch (err) {
+    log.error(`Unable to unrelate Brands: ${err}`);
+    next(err);
+  }
+}
+
+export async function unrelateCategoriesHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const sId = req.params.sId as string;
+    if (!sId) {
+      // log.warn(`req.params ${req.params}`);
+      log.error(`Invalid request. Params: ${req.params.sId}`);
+      res.status(400).json({ message: 'Invalid request' });
+      return;
+    }
+    const result = await unrelateCategories(Number.parseInt(sId, 10));
+
+    res.status(200).json({
+      ...result,
+    });
+
+  } catch (err) {
+    log.error(`Unable to unrelate Categories: ${err}`);
+    next(err);
+  }
+}
 
 export async function syncSmBrandsHandler(req: Request, res: Response, next: NextFunction) {
   try {
@@ -215,18 +300,18 @@ export async function syncTrayBrandsHandler(req: Request, res: Response, next: N
   }
 }
 
-// export async function syncCategoriesHandler(req: Request, res: Response, next: NextFunction) {
-//   try {
-//     const categoriesInformation = await getCategorySyncDetails();
+export async function getCategorySyncDataHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const categoriesInformation = await getCategorySyncDetails();
 
-//     res.status(200).json({
-//       ...categoriesInformation,
-//     });
-//   } catch (err) {
-//     log.error(`Unable to fetch Categories sync details with error: ${err}`);
-//     next(err);
-//   }
-// }
+    res.status(200).json({
+      ...categoriesInformation,
+    });
+  } catch (err) {
+    log.error(`Unable to fetch Categories sync details with error: ${err}`);
+    next(err);
+  }
+}
 
 export async function syncSmCategoriesHandler(req: Request, res: Response, next: NextFunction) {
   try {

@@ -1,7 +1,11 @@
 import { Express, Request, Response } from 'express';
 import {
+  correlateBrandsHandler,
+  correlateCategoriesHandler,
   deleteBrandHandler,
   deleteCategoryHandler,
+  getBrandSyncDataHandler,
+  getCategorySyncDataHandler,
   getIntegrationByStoreCodeHandler,
   initiateIntegrationHandler,
   insertBrandHandler,
@@ -11,6 +15,8 @@ import {
   syncSmCategoriesHandler,
   syncTrayBrandsHandler,
   syncTrayCategoriesHandler,
+  unrelateBrandsHandler,
+  unrelateCategoriesHandler,
   updateBrandHandler,
   updateCategoryHandler,
   updateIntegrationHandler,
@@ -35,13 +41,17 @@ export default function (app: Express) {
   //
   app.get('/api/integration', getIntegrationByStoreCodeHandler);
 
-  // TODO remove
-  // app.get('/api/synchronization/category', syncCategoriesHandler);
-  app.get('/api/synchronization/sm/category/', syncSmCategoriesHandler);
+  // Sync Operations for Categories
+  app.get('/api/synchronization/category', getCategorySyncDataHandler);
+  app.put('/api/synchronization/category', correlateCategoriesHandler);
+  app.delete('/api/synchronization/category/:sId', unrelateCategoriesHandler);
+  app.get('/api/synchronization/sm/category', syncSmCategoriesHandler);
   app.get('/api/synchronization/tray/category', syncTrayCategoriesHandler);
 
-  // TODO remove
-  // app.get('/api/synchronization/brand', syncBrandsHandler);
+  // Sync Operations for Brand
+  app.get('/api/synchronization/brand', getBrandSyncDataHandler);
+  app.put('/api/synchronization/brand', correlateBrandsHandler);
+  app.delete('/api/synchronization/brand/:sId', unrelateBrandsHandler);
   app.get('/api/synchronization/sm/brand', syncSmBrandsHandler);
   app.get('/api/synchronization/tray/brand', syncTrayBrandsHandler);
 

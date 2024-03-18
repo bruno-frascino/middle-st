@@ -280,11 +280,11 @@ export async function getFreshTrayCategories() {
 }
 
 export async function getAllStoredTrayBrands() {
-  return getTBrandsByActiveState({ active: true });
+  return getAllTBrands();
 }
 
 export async function getActiveStoredTrayBrands() {
-  return getAllTBrands();
+  return getTBrandsByActiveState({ active: true });
 }
 
 export async function getAllStoredTrayCategories() {

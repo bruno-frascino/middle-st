@@ -1,5 +1,5 @@
 /* eslint-disable no-await-in-loop */
-import config from 'config';
+import config, { get } from 'config';
 import { IProduct, Integration, SBrand as ESBrand, TBrand as ETBrand, SCategory as ESCategory, TCategory as ETCategory } from '../model/db.model';
 import { Act, Scope, Product as TProduct, Variant } from '../model/tray.model';
 import { Condition, Product as SProduct, Sku } from '../model/sm.model';
@@ -42,9 +42,12 @@ import {
   createIProduct,
   createIProductSku,
   getAllActiveIntegrations,
-  getBrandMapByTName,
-  getCategoryMapByTId,
-  getCategoryMapByTName,
+  getBrandSyncData,
+  getBrandSyncDataBySId,
+  getBrandUnsyncedData,
+  getCategorySyncData,
+  getCategorySyncDataBySId,
+  getCategoryUnsyncedData,
   getIProductById,
   getIProductByT,
   getIProductSkuByT,
@@ -604,7 +607,7 @@ export async function convertToSProduct(tProduct: TProduct): Promise<SProduct> {
 export async function convertToSBrand(tBrandId: number, tBrandName: string) {
   // TODO - check by Id first
   // Try to find by name
-  const brandMap = await getBrandMapByTName({ tBrandName });
+  const brandMap = {}; // TODO await getBrandMapByTName({ tBrandName });
   log.warn(`S Brand found: ${JSON.stringify(brandMap)}`);
   // If Not found Create new Brand in S
   if (!brandMap || (Array.isArray(brandMap) && brandMap.length === 0)) {
@@ -612,9 +615,9 @@ export async function convertToSBrand(tBrandId: number, tBrandName: string) {
     throw new MiddleError(error, ErrorCategory.BUS);
   }
   // Get S Id
-  const { sBrandId } = brandMap;
+  // const { sBrandId } = brandMap;
   // Get new S Id and add new record to Map
-  return sBrandId;
+  return 1;
 }
 
 export async function convertToSCategories({
@@ -658,7 +661,7 @@ export async function convertToSCategories({
 }
 
 async function convertToSCategoryByName(tCategoryName: string) {
-  const categoryMap = await getCategoryMapByTName({ tCategoryName });
+  const categoryMap = {}; // await getCategoryMapByTName({ tCategoryName });
   log.warn(`S Category found: ${JSON.stringify(categoryMap)}`);
   //
   if (!categoryMap || (Array.isArray(categoryMap) && categoryMap.length === 0)) {
@@ -666,14 +669,14 @@ async function convertToSCategoryByName(tCategoryName: string) {
     throw new MiddleError(error, ErrorCategory.BUS);
   }
   // Get S Id
-  const { sCategoryId } = categoryMap;
+  // const { sCategoryId } = categoryMap;
   // Get new S Id and add new record to Map
-  return sCategoryId;
+  return 1;
 }
 
 async function convertToSCategoryById(tCategoryId: number) {
   // Try to find by name
-  const categoryMap = await getCategoryMapByTId({ tCategoryId });
+  const categoryMap = {}; // await getCategoryMapByTId({ tCategoryId });
   log.warn(`S Category found: ${JSON.stringify(categoryMap)}`);
   // fail if not found
   if (!categoryMap || (Array.isArray(categoryMap) && categoryMap.length === 0)) {
@@ -681,7 +684,8 @@ async function convertToSCategoryById(tCategoryId: number) {
     throw new MiddleError(error, ErrorCategory.BUS);
   }
 
-  return categoryMap.sCategoryId;
+  // return categoryMap.sCategoryId; 
+  return 1;
 }
 
 function convertToSSku(variant: Variant) {
@@ -761,47 +765,143 @@ export async function getActiveIProductById(id: number) {
   return undefined;
 }
 
-// TODO- remove
-// export async function getBrandSyncDetails() {
-//   const [freshSBrands, storedSBrands, freshTBrands, storedTBrands]
-//     = await Promise.all([
-//       getFreshSmBrands(),
-//       getAllStoredSmBrands(),
-//       getFreshTrayBrands(),
-//       getAllStoredTrayBrands()
-//     ]);
+export async function getBrandSyncDetails() {
 
-//   return {
-//     apiSmBrands: freshSBrands,
-//     dbSmBrands: storedSBrands,
-//     apiTrayBrands: freshTBrands,
-//     dbTrayBrands: storedTBrands,
-//   };
-// }
+  const [brandSyncData, unsyncedTBrands] = await Promise.all([
+    getBrandSyncData(),
+    getBrandUnsyncedData(),
+  ]);
+  return {
+    brandSyncData,
+    unsyncedTBrands
+  };
+}
 
-// TODO remove
-// export async function getCategorySyncDetails() {
-//   // const promises = [getFreshSmBrands(), getActiveStoredSmBrands(), getFreshTrayBrands(), getActiveStoredTrayBrands()];
-//   // const promiseResult = await Promise.all(promises);
+export async function correlateBrands({ sId, tId }: { sId: number, tId: number }) {
 
-//   // get SM Categories
-//   const freshSCategories = await getFreshSmCategories();
-//   // get DB SM Categories
-//   const storedSCategories = await getActiveStoredSmCategories();
+  const sBrand = await getSmBrandById(sId);
 
-//   // get T Categories
-//   const freshTCategories = await getFreshTrayCategories();
+  if (!sBrand) {
+    throw new MiddleError(`Brand with id ${sId} not found`, ErrorCategory.BUS);
+  }
 
-//   // get DB T Categories
-//   const storedTCategories = await getActiveStoredTrayCategories();
+  if (sBrand && sBrand.tBrandId) {
+    throw new MiddleError(`Brand ${sBrand.name} is already correlated with Tray Brand ${sBrand.tBrandId}`, ErrorCategory.BUS);
+  }
 
-//   return {
-//     apiSmCategories: freshSCategories,
-//     dbSmCategories: storedSCategories,
-//     apiTrayCategories: freshTCategories,
-//     dbTrayCategories: storedTCategories,
-//   };
-// }
+  sBrand.tBrandId = tId;
+
+  const result = await updateSBrandByBrand({ dbBrand: sBrand });
+  if (result && result.affectedRows === 0) {
+    throw new MiddleError(`Brand correlation failed for sId: ${sId} and tBrandId: ${tId}`, ErrorCategory.BUS);
+  }
+
+  return getSmBrandById(sId);
+}
+
+export async function correlateCategories({ sId, tId }: { sId: number, tId: number }) {
+
+  const sCategory = await getSmCategoryById(sId);
+
+  if (!sCategory) {
+    throw new MiddleError(`Category with id ${sId} not found`, ErrorCategory.BUS);
+  }
+
+  if (sCategory && sCategory.tCategoryId) {
+    throw new MiddleError(`Category ${sCategory.name} is already correlated with Tray Category ${sCategory.tCategoryId}`, ErrorCategory.BUS);
+  }
+
+  sCategory.tCategoryId = tId;
+
+  const result = await updateSCategoryByCategory({ dbCategory: sCategory });
+  if (result && result.affectedRows === 0) {
+    throw new MiddleError(`Category correlation failed for sId: ${sId} and tCategoryId: ${tId}`, ErrorCategory.BUS);
+  }
+
+  return getSmCategoryById(sId);
+}
+
+export async function unrelateBrands(sId: number) {
+
+  const sBrand = await getSmBrandById(sId);
+
+  if (!sBrand || !sBrand.tBrandId) {
+    throw new MiddleError(`Failed to unrelate brands, SM Brand with id ${sId} not found`, ErrorCategory.BUS);
+  }
+
+  const tId = sBrand.tBrandId;
+  sBrand.tBrandId = undefined;
+
+  const result = await updateSBrandByBrand({ dbBrand: sBrand });
+  if (result && result.affectedRows === 0) {
+    throw new MiddleError(`Failed to unrelate brands for Sm Brand with id: ${sId} `, ErrorCategory.BUS);
+  }
+
+  const [unrelatedBrandSyncData, unrelatedTBrand] = await Promise.all([
+    getBrandSyncDataBySmId(sId),
+    getTrayBrandById(tId),
+  ]);
+
+  return {
+    brandSyncData: unrelatedBrandSyncData,
+    unsyncedTBrand: unrelatedTBrand
+  }
+}
+
+export async function unrelateCategories(sId: number) {
+
+  const sCategory = await getSmCategoryById(sId);
+
+  if (!sCategory || !sCategory.tCategoryId) {
+    throw new MiddleError(`Failed to unrelate categories, SM Category with id ${sId} not found`, ErrorCategory.BUS);
+  }
+
+  const tId = sCategory.tCategoryId;
+  sCategory.tCategoryId = undefined;
+
+  const result = await updateSCategoryByCategory({ dbCategory: sCategory });
+  if (result && result.affectedRows === 0) {
+    throw new MiddleError(`Failed to unrelate categories for Sm Category with id: ${sId} `, ErrorCategory.BUS);
+  }
+
+  const [unrelatedCategorySyncData, unrelatedTCategory] = await Promise.all([
+    getCategorySyncDataBySmId(sId),
+    getTrayCategoryById(tId),
+  ]);
+
+  return {
+    categorySyncData: unrelatedCategorySyncData,
+    unsyncedTCategory: unrelatedTCategory
+  }
+}
+
+
+export async function getBrandSyncDataBySmId(sId: number) {
+  const brandSyncData = await getBrandSyncDataBySId({ sId });
+  if (brandSyncData && Array.isArray(brandSyncData) && brandSyncData.length === 1) {
+    return brandSyncData[0];
+  }
+  return undefined;
+}
+
+export async function getCategorySyncDataBySmId(sId: number) {
+  const categorySyncData = await getCategorySyncDataBySId({ sId });
+  if (categorySyncData && Array.isArray(categorySyncData) && categorySyncData.length === 1) {
+    return categorySyncData[0];
+  }
+  return undefined;
+}
+
+export async function getCategorySyncDetails() {
+  const [categorySyncData, unsyncedTCategories] = await Promise.all([
+    getCategorySyncData(),
+    getCategoryUnsyncedData(),
+  ]);
+  return {
+    categorySyncData,
+    unsyncedTCategories
+  };
+}
 
 export async function manageBrandSynchronization() {
   // UPDATE SM Brand Table
@@ -824,8 +924,6 @@ export async function updateSBrandReference() {
   const storedSBrands = await getActiveStoredSmBrands();
 
   const sBrandActionMap = getSBrandActionGroups({ freshSBrands, storedSBrands });
-
-  console.log(JSON.stringify(sBrandActionMap));
 
   // // Insert
   // const insertGroup = sBrandActionMap.get(Action.INSERT);

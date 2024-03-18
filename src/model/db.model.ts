@@ -95,6 +95,7 @@ export interface SBrand {
   seoKeywords: string;
   createDate: string;
   updateDate?: string;
+  tBrandId?: number;
   active: number;
 }
 
@@ -115,6 +116,7 @@ export interface SCategory {
   updateDate?: string;
   active: boolean;
   fsActive: number;
+  tCategoryId?: number;
 }
 
 export interface TBrand {
@@ -147,6 +149,28 @@ export interface TCategory {
 
 export interface RecordKey {
   id: number;
+}
+
+export interface BrandSyncData {
+  sId: number;
+  sBrandId: number;
+  sName: string;
+  sActive: number;
+  tId: number;
+  tBrandId: number;
+  tBrand: string;
+  tActive: number;
+}
+
+export interface CategorySyncData {
+  sId: number;
+  sCategoryId: number;
+  sName: string;
+  sFsActive: number;
+  tId: number;
+  tCategoryId: number;
+  tName: string;
+  tFsActive: number;
 }
 
 export interface AffectedRows {
