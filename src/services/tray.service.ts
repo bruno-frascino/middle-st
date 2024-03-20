@@ -1,5 +1,8 @@
 import config from 'config';
-import { Act, Brand, Category, Notification, Product, TrayToken, Variant } from '../model/tray.model';
+import {
+  Act, Brand, Category, Notification, Product, TrayToken,
+  Variant
+} from '../model/tray.model';
 import log from '../logger';
 import {
   deleteTBrand,

@@ -2,7 +2,14 @@ import log from '../logger';
 import { SBrand as ESBrand, Integration } from '../model/db.model';
 import { Brand, Category, Product, Sku, SmToken } from '../model/sm.model';
 import { addToCurrentTime, getCurrentUnixTime } from '../shared/utils/utils';
-import { getAllActiveIntegrations, getSBrandsByActiveState, getAllSBrands, getSCategoriesByActiveState, getAllSCategories, insertSBrand, updateSBrand, updateSConnectionDetails, getSBrandById, getSBrandByBrandId, deleteSBrand, insertSCategory, getSCategoryById, updateSCategory, getSCategoryByCategoryId, deleteSCategory } from '../db/db';
+import {
+  getAllActiveIntegrations, getSBrandsByActiveState, getAllSBrands,
+  getSCategoriesByActiveState, getAllSCategories, insertSBrand,
+  updateSBrand, updateSConnectionDetails, getSBrandById,
+  getSBrandByBrandId, deleteSBrand, insertSCategory,
+  getSCategoryById, updateSCategory, getSCategoryByCategoryId,
+  deleteSCategory
+} from '../db/db';
 import {
   deleteProduct,
   deleteSku,
