@@ -7,9 +7,9 @@ import log from '../logger';
 import {
   deleteTBrand,
   deleteTCategory,
-  getAllActiveIntegrations,
   getAllTBrands,
   getAllTCategories,
+  getIntegrationsByStatus,
   getOrderedNotifications,
   getTBrandByBrandId,
   getTBrandById,
@@ -259,7 +259,7 @@ export async function getTrayVariant(variantId: number, integration: Integration
 }
 
 export async function getFreshTrayBrands() {
-  const integrations = await getAllActiveIntegrations();
+  const integrations = await getIntegrationsByStatus(1); // active
   if (integrations && integrations.length > 0) {
     // TODO check - any integration, any seller brings all the brands?
     const accessToken = await provideTrayAccessToken(integrations[0]);
@@ -271,7 +271,7 @@ export async function getFreshTrayBrands() {
 }
 
 export async function getFreshTrayCategories() {
-  const integrations = await getAllActiveIntegrations();
+  const integrations = await getIntegrationsByStatus(1); // active
   if (integrations && integrations.length > 0) {
     // TODO check - any integration, any seller brings all the categories?
     const accessToken = await provideTrayAccessToken(integrations[0]);

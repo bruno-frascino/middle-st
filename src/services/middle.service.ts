@@ -33,7 +33,7 @@ import {
 import {
   createIProduct,
   createIProductSku,
-  getAllActiveIntegrations,
+  getActiveIntegrationById,
   getBrandSyncData,
   getBrandSyncDataBySId,
   getBrandUnsyncedData,
@@ -45,8 +45,8 @@ import {
   getIProductSkuByT,
   getIProductSkuByVariant,
   getIProductSkusByIntegration,
-  getIntegrationById,
   getIntegrationByStoreCode,
+  getIntegrationsByStatus,
   insertIError,
   insertIntegration,
   updateIProduct,
@@ -59,10 +59,11 @@ import {
   updateTCategoryByCategory,
 } from '../db/db';
 import { ErrorCategory, MiddleError } from '../shared/errors/MiddleError';
+import { convertToSProduct, convertToSSku } from './shared/converter.service';
 
 export async function createIntegration({ storeCode }: { storeCode: string }) {
   const recordKey = await insertIntegration({ storeCode: Number.parseInt(storeCode, 10) });
-  const integration = getActiveIntegrationById(recordKey.id);
+  const integration = getActiveIntegration(recordKey.id);
   if (!integration) {
     throw new MiddleError(`Error creating integration for storeCode: ${storeCode}`, ErrorCategory.BUS);
   }
@@ -70,8 +71,8 @@ export async function createIntegration({ storeCode }: { storeCode: string }) {
   return integration;
 }
 
-export async function getActiveIntegrationById(id: number) {
-  const integrations = await getIntegrationById(id);
+export async function getActiveIntegration(id: number) {
+  const integrations = await getActiveIntegrationById(id);
   if (integrations && Array.isArray(integrations) && integrations.length === 1) {
     return integrations[0];
   }
@@ -133,16 +134,20 @@ export async function updateTrayDbBrand(trayDbBrand: ETBrand) {
  *  This Service understands both systems
  * */
 
+/**
+ * Update access tokens in the database
+ * @returns 
+ */
 export async function initializeSystemConnections() {
   log.info(`Initializing System Connections`);
   // GET INTEGRATIONS
-  const integrations = await getAllActiveIntegrations();
-  if (!integrations || integrations.length === 0) {
-    log.warn(`No Integrations could be found`);
+  const activeIntegrations = await getIntegrationsByStatus(1); // active
+  if (!activeIntegrations || activeIntegrations.length === 0) {
+    log.warn(`No active Integrations could be found`);
     return;
   }
 
-  integrations.forEach(async (integration) => {
+  activeIntegrations.forEach(async (integration) => {
     try {
       await provideTrayAccessToken(integration);
       await provideSmAccessToken(integration);
@@ -157,10 +162,12 @@ export function initializeMonitors() {
   const sMonitorInterval: number = config.get(EVarNames.SM_MONITOR_INTERVAL);
 
   try {
+    // TODO - store the interval id in the database and create admin operation 
+    // to stop/start intervals
     // Start Tray monitor
-    setInterval(monitorTrayNotifications, tMonitorInterval);
+    const trayIntervalId = setInterval(monitorTrayNotifications, tMonitorInterval);
     // Start SM monitor
-    setInterval(monitorSmChanges, sMonitorInterval);
+    const smIntervalId = setInterval(monitorSmChanges, sMonitorInterval);
   } catch (error) {
     log.error(`Monitoring error: ${JSON.stringify(error)}`);
   }
@@ -174,6 +181,8 @@ export async function monitorTrayNotifications() {
   log.info('Tray monitor checking notifications...');
   const start = getCurrentUnixTime();
 
+  // TODO - check possible life cycle of notifications
+  // status comoplete
   const notifications = await getAllNotifications();
   if (notifications.length === 0) {
     log.warn(`No Tray notifications were found`);
@@ -185,11 +194,14 @@ export async function monitorTrayNotifications() {
   // eslint-disable-next-line no-restricted-syntax
   for (const notification of sNotifications) {
     let tProductId;
-    const integrations = await getIntegrationById(notification.integrationId);
-    if (!integrations || (Array.isArray(integrations) && integrations.length === 0)) {
-      throw new MiddleError(`Integration not found for id: ${notification.integrationId}`, ErrorCategory.BUS);
+    // TODO - possible impact in performance, we might want to 
+    // to fetch it in parallel
+    const integration = await getActiveIntegration(notification.integrationId);
+    if (!integration) {
+      const errorMessage = `Integration not found for id: ${notification.integrationId}`;
+      log.error(errorMessage)
+      throw new MiddleError(errorMessage, ErrorCategory.BUS);
     }
-    const integration = integrations[0];
     let errorMessage = '';
 
     switch (`${notification.scopeName}-${notification.act}`) {
@@ -214,7 +226,7 @@ export async function monitorTrayNotifications() {
           log.warn(`T Product : ${JSON.stringify(tProduct)}`);
           tProductId = tProduct.Product.id;
           // POPULATE SM PRODUCT OBJECT
-          const sProduct = await convertToSProduct(tProduct);
+          const sProduct = await convertToSProduct(tProduct, integration);
           // CREATE SM PRODUCT (API)
           const apiSProduct = await createSProduct(sProduct, integration);
           // CREATE DB REGISTER (Seller x SM Id x Tray Id)
@@ -408,7 +420,7 @@ export async function monitorSmChanges() {
   const start = Date.now();
   log.info(`SM monitor checking product changes`);
   // GET ALL INTEGRATIONS
-  const integrations = await getAllActiveIntegrations();
+  const integrations = await getIntegrationsByStatus(1); // active
   // const iProducts = await getAllIProducts();
   // log.info(`SM Changes Monitor has started - Products list size: ${iProducts.length}`);
 
@@ -462,273 +474,6 @@ export async function monitorSmChanges() {
     }
   }
   log.info(`SM monitor finished in: ${Date.now() - start} milliseconds`);
-}
-
-// TODO - Product conversion
-export async function convertToSProduct(tProduct: TProduct): Promise<SProduct> {
-  // id ?? TODO - Create vs Update
-  // const attributes = []; // check example in SM to try to correlate to tray
-
-  // SIMPLE conversion
-  const {
-    available,
-    brand_id,
-    brand,
-    category_id,
-    category_name,
-    related_categories,
-    all_categories,
-    created,
-    description,
-    ean,
-    free_shipping,
-    metatag,
-    height,
-    length,
-    model,
-    price,
-    slug,
-    promotional_price,
-    reference,
-    stock,
-    name,
-    title,
-    video,
-    weight,
-    width,
-    ProductImage,
-  } = tProduct.Product;
-
-  // const images = [];
-  // if (ProductImage && ProductImage.length > 0) {
-  const images =
-    ProductImage &&
-    ProductImage.length > 0 &&
-    ProductImage.map((productImage, index) => {
-      return {
-        url: productImage.https,
-        sequence: index + 1,
-      };
-    });
-  // for (let i = 0; i < ProductImage.length; i += 1) {
-  //   const productImage = ProductImage[i];
-  //   images.push({
-  //     url: productImage.https,
-  //     sequence: i + 1,
-  //   });
-  // }
-  // }
-
-  const sProduct: SProduct = {
-    id: 0, // check
-    title: name,
-    publish: true, // default?
-    active: true, // default? would get to this point?
-    slug,
-    old_url: '', // no related field
-    description,
-    categories: await convertToSCategories({ category_id, category_name, related_categories }), // TODO
-    attributes: [], // check // TODO
-    brand_id: await convertToSBrand(brand_id, brand), // TODO
-    model,
-    reference_code: reference, // reference to the product
-    // block: '', // no equivalent atm
-    created_at: created,
-    condition: Condition.NOVO, // check
-    supports_seller_contact: true, // hardcoded
-    url_video: video,
-    shipping: {
-      free: free_shipping === 1,
-      enabled: true,
-    },
-    seo: {
-      // metatag maybe - Check with Tray
-      title: '',
-      description: metatag?.description,
-      keywords: metatag?.type,
-    },
-    // No related fields from Tray
-    // google_shopping: {
-    //   enable: false,
-    //   mpn: '',
-    //   age_group: '', // infant
-    //   gender: '', // male
-    //   google_product_category: '',
-    // },
-    gallery: {
-      video,
-      images: images || [],
-    },
-
-    skus: [
-      {
-        stock,
-        barcode: ean,
-        code_sku: '', // check ??
-        status: available === 1 ? 'ACTIVE' : 'INACTIVE', // "INACTIVE" | ACTIVE
-        unity_type: '', // ??
-        unity_quantity: 0, // Sku stock ?
-        extra_days_to_delivery: 0, // any default?
-        dimensions: {
-          weight,
-          height,
-          width,
-          length,
-        },
-        prices: {
-          retail: {
-            regular: price,
-            sale: promotional_price,
-          },
-          wholesale: {
-            regular: 0,
-            sale: 0,
-          },
-        },
-        variants: [],
-      },
-    ],
-  };
-
-  return sProduct;
-}
-
-export async function convertToSBrand(tBrandId: number, tBrandName: string) {
-  // TODO - check by Id first
-  // Try to find by name
-  const brandMap = {}; // TODO await getBrandMapByTName({ tBrandName });
-  log.warn(`S Brand found: ${JSON.stringify(brandMap)}`);
-  // If Not found Create new Brand in S
-  if (!brandMap || (Array.isArray(brandMap) && brandMap.length === 0)) {
-    const error = `Could not find a Brand for ${tBrandName}`;
-    throw new MiddleError(error, ErrorCategory.BUS);
-  }
-  // Get S Id
-  // const { sBrandId } = brandMap;
-  // Get new S Id and add new record to Map
-  return 1;
-}
-
-export async function convertToSCategories({
-  category_id,
-  category_name,
-  related_categories,
-}: {
-  category_id: number;
-  category_name: string;
-  related_categories: number[];
-}) {
-  const convertedCategories = [];
-  // convert principal category first by name
-  if (category_id && category_name) {
-    const sCategoryId = await convertToSCategoryByName(category_name);
-    log.warn(`sCategory found: ${sCategoryId}`);
-    convertedCategories.push(sCategoryId);
-  }
-
-  const errorMessages = [];
-  // convert a list for categories from Tray to SM
-  if (related_categories && related_categories.length > 0) {
-    const promises = related_categories.map(async (id) => {
-      try {
-        await convertToSCategoryById(id);
-      } catch (error) {
-        errorMessages.push(`Couldn't find S related category for T category ${id}`);
-      }
-    });
-    // TODO handle error
-    Promise.all(promises)
-      .then((res) => {
-        log.warn(`Promise all response for Categories conversion: ${JSON.stringify(res)}`);
-      })
-      .catch((error) => {
-        log.error(JSON.stringify(error));
-      });
-  }
-
-  return convertedCategories;
-}
-
-async function convertToSCategoryByName(tCategoryName: string) {
-  const categoryMap = {}; // await getCategoryMapByTName({ tCategoryName });
-  log.warn(`S Category found: ${JSON.stringify(categoryMap)}`);
-  //
-  if (!categoryMap || (Array.isArray(categoryMap) && categoryMap.length === 0)) {
-    const error = `Could not find a Category for ${tCategoryName}`;
-    throw new MiddleError(error, ErrorCategory.BUS);
-  }
-  // Get S Id
-  // const { sCategoryId } = categoryMap;
-  // Get new S Id and add new record to Map
-  return 1;
-}
-
-async function convertToSCategoryById(tCategoryId: number) {
-  // Try to find by name
-  const categoryMap = {}; // await getCategoryMapByTId({ tCategoryId });
-  log.warn(`S Category found: ${JSON.stringify(categoryMap)}`);
-  // fail if not found
-  if (!categoryMap || (Array.isArray(categoryMap) && categoryMap.length === 0)) {
-    const error = `Could not find an SM Category for T category id ${tCategoryId}`;
-    throw new MiddleError(error, ErrorCategory.BUS);
-  }
-
-  // return categoryMap.sCategoryId; 
-  return 1;
-}
-
-function convertToSSku(variant: Variant) {
-  // eslint-disable-next-line @typescript-eslint/no-shadow
-  const { Variant } = variant;
-  const sku: Sku = {
-    code_sku: Variant.id.toString(),
-    barcode: Variant.ean,
-    prices: {
-      retail: {
-        regular: Variant.cost_price,
-        sale: Variant.price,
-      },
-    },
-    stock: Variant.stock,
-    status: Variant.available === 1 ? 'ACTIVE' : 'INACTIVE',
-    // TODO: Check default values - dummy for now as they don't exist in Tray
-    unity_type: '',
-    unity_quantity: 0,
-    extra_days_to_delivery: 0,
-    dimensions: {
-      weight: Variant.weight,
-      height: Variant.height,
-      width: Variant.width,
-      length: Variant.length,
-    },
-    // TODO - how to translate TRAY variant to this variant
-    variants: [],
-    // variants: Variant[];
-    // {
-    //   id: number;
-    //   name: string; // "Tamanho",
-    //   value: string; // "M"
-    // }
-
-    // TRAY fields without a clear correspondent in SM
-    // order: string; //         Tray
-    // product_id: number; //    Tray
-    // minimum_stock: number; // Tray
-    // reference: string; //     Tray
-    // cubic_weight: number; //  Tray
-    // // '2019-01-01';
-    // start_promotion: Date; //                    Tray
-    // // '2019-01-10';
-    // end_promotion: Date; //                      Tray
-    // promotional_price: number; //                Tray
-    // payment_option: string; //                   Tray
-    // payment_option_details: PaymentDetails[]; // Tray
-    // illustrative_image: string; //               Tray
-    // Sku: TypeValueImage[]; // TODO Confirm these
-    // VariantImage: Image[]; // Gallery?
-  };
-
-  return sku;
 }
 
 // T to S

@@ -120,7 +120,7 @@ export async function getIntegrationByStoreCode(storeCode: number) {
   return (await query(sql, [storeCode])) as Integration[];
 }
 
-export async function getIntegrationById(id: number) {
+export async function getActiveIntegrationById(id: number) {
   const sql = `SELECT * 
               FROM Integration 
               WHERE id = ${id}
@@ -129,10 +129,18 @@ export async function getIntegrationById(id: number) {
   return (await query(sql)) as Integration[];
 }
 
-export async function getAllActiveIntegrations() {
+export async function getIntegrationById(id: number) {
   const sql = `SELECT * 
               FROM Integration 
-              WHERE active = 1
+              WHERE id = ${id}`;
+
+  return (await query(sql)) as Integration[];
+}
+
+export async function getIntegrationsByStatus(active: 0 | 1) {
+  const sql = `SELECT * 
+              FROM Integration 
+              WHERE active = ${active}
               ORDER BY ID`;
 
   return (await query(sql)) as Integration[];
@@ -209,7 +217,12 @@ export async function insertNotification(notification: Notification, integration
 }
 
 export async function getOrderedNotifications() {
-  const sql = `SELECT * FROM Notification ORDER BY sellerId, scopeName, scopeId, createDate`;
+  const sql = `SELECT * 
+  FROM Notification 
+  ORDER BY sellerId, 
+          scopeName, 
+          scopeId, 
+          createDate`;
 
   return (await query(sql)) as ENotification[];
 }
@@ -687,10 +700,34 @@ export async function getSCategoryByCategoryId(categoryId: number) {
   return (await query(sql)) as ESCategory[];
 }
 
+export async function getSCategoryByTCategoryId(tCategoryId: number) {
+  const sql = `SELECT * 
+              FROM SCategory 
+              WHERE tCategoryId = ${tCategoryId}`;
+
+  return (await query(sql)) as ESCategory[];
+}
+
+export async function getSCategoriesByTCategories(tCategoryIds: number[]) {
+  const sql = `SELECT * 
+              FROM SCategory 
+              WHERE tCategoryId IN (${tCategoryIds.join(',')})`;
+
+  return (await query(sql)) as ESCategory[];
+}
+
 export async function getSBrandByBrandId(brandId: number) {
   const sql = `SELECT * 
               FROM SBrand 
               WHERE brandId = ${brandId}`;
+
+  return (await query(sql)) as ESBrand[];
+}
+
+export async function getSBrandByTBrandId(tBrandId: number) {
+  const sql = `SELECT * 
+              FROM SBrand 
+              WHERE tBrandId = ${tBrandId}`;
 
   return (await query(sql)) as ESBrand[];
 }

@@ -3,12 +3,13 @@ import { SBrand as ESBrand, Integration } from '../model/db.model';
 import { Brand, Category, Product, Sku, SmToken } from '../model/sm.model';
 import { addToCurrentTime, getCurrentUnixTime } from '../shared/utils/utils';
 import {
-  getAllActiveIntegrations, getSBrandsByActiveState, getAllSBrands,
+  getSBrandsByActiveState, getAllSBrands,
   getSCategoriesByActiveState, getAllSCategories, insertSBrand,
   updateSBrand, updateSConnectionDetails, getSBrandById,
   getSBrandByBrandId, deleteSBrand, insertSCategory,
   getSCategoryById, updateSCategory, getSCategoryByCategoryId,
-  deleteSCategory
+  deleteSCategory,
+  getIntegrationsByStatus
 } from '../db/db';
 import {
   deleteProduct,
@@ -190,7 +191,7 @@ export async function getSmSku({ skuId, integration }: { skuId: number; integrat
 }
 
 export async function getFreshSmBrands() {
-  const integrations = await getAllActiveIntegrations();
+  const integrations = await getIntegrationsByStatus(1); // active
   // any integration - Brands are independent of sellers
   const accessToken = await provideSmAccessToken(integrations[0]);
   const brandResponse = await getBrands({ accessToken });
@@ -199,7 +200,7 @@ export async function getFreshSmBrands() {
 }
 
 export async function getFreshSmCategories() {
-  const integrations = await getAllActiveIntegrations();
+  const integrations = await getIntegrationsByStatus(1); // active
   const accessToken = await provideSmAccessToken(integrations[0]);
   const categoryResponse = await getCategories({ accessToken });
   log.info(`Fetched fresh SM categories: ${JSON.stringify(categoryResponse)}`);
