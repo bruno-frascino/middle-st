@@ -55,10 +55,10 @@ export interface Sku {
   extra_days_to_delivery: number; //  SM
   dimensions: Dimension; //           weight, length, width, height
   prices: Price; //                   price && cost_price
-  variants: Variant[];
+  variants?: Variant[];
 }
 export interface Product {
-  id: number;
+  id?: number;
   title: string;
   publish: boolean;
   active: boolean;

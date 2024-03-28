@@ -126,7 +126,7 @@ export interface Product {
     warranty_days: number;
     availability_days: number;
     metatag: Metatag;
-    Variant: number[]; // TODO Confirm this
+    Variant: IdObject[];
     is_kit: number; // 0 | 1
     activation_date: string;
     deactivation_date: string;
@@ -151,6 +151,10 @@ export interface Product {
     // TODO - check this type - no pattern
     AdditionalInfos: [{ [key: string]: [key: string] }];
   };
+}
+
+export interface IdObject {
+  id: string;
 }
 
 interface Image {
